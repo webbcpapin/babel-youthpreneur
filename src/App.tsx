@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router'
+﻿import { Routes, Route } from 'react-router'
 import HomePage from './pages/HomePage'
 import EvaluasiPage from './pages/EvaluasiPage'
 import RencanaPage from './pages/RencanaPage'
@@ -14,3 +14,4 @@ export default function App() {
     </Routes>
   )
 }
+

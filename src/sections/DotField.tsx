@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react'
+﻿import { useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 
 const COUNT = 2500
@@ -285,3 +285,4 @@ export default function DotField() {
     />
   )
 }
+

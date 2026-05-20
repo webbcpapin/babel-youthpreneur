@@ -8,28 +8,28 @@ const juri = [
   {
     name: 'Agustinus Prasetyo',
     role: 'Kabid PPA I, Kanwil DJPb Babel',
-    image: '/images/juri-agustinus.jpg',
+    image: './images/juri-agustinus.jpg',
   },
   {
     name: 'Mariany Bunawan',
     role: 'Owner Waroeng Tung Tau',
-    image: '/images/narsum-mariany.jpeg',
+    image: './images/narsum-mariany.jpeg',
   },
   {
     name: 'Rina Trisella',
     role: 'Dir. Aset dan Umum, EL JOHN INDONESIA',
-    image: '/images/juri-rina.jpeg',
+    image: './images/juri-rina.jpeg',
   },
   {
     name: 'Elfirman Yusuf Sebayang',
     role: 'Kasubag Umum, KPP Bea Cukai Pangkalpinang',
-    image: '/images/juri-elfirman.jpg',
+    image: './images/juri-elfirman.jpg',
   },
 ]
 
 const host = [
-  { name: 'Imadella Tasya Eartam', image: '/images/mc-imadelia.png' },
-  { name: 'Andra Feronia Vandi', image: '/images/mc-andra.png' },
+  { name: 'Imadella Tasya Eartam', image: './images/mc-imadelia.png' },
+  { name: 'Andra Feronia Vandi', image: './images/mc-andra.png' },
 ]
 
 export default function DewanJuri() {
@@ -105,4 +105,5 @@ export default function DewanJuri() {
     </section>
   )
 }
+
 

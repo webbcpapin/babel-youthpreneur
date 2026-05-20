@@ -5,10 +5,10 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const moments = [
-  { src: '/images/doc-opening-1.jpg', title: 'Opening Program', note: 'Babel Youthpreneur' },
-  { src: '/images/doc-green-2.jpg', title: 'Green Economy', note: 'Sesi edukasi' },
-  { src: '/images/doc-kur-1.jpg', title: 'Pembiayaan KUR', note: 'Akses permodalan' },
-  { src: '/images/doc-closing-2.jpg', title: 'Closing Ceremony', note: 'Apresiasi karya' },
+  { src: './images/doc-opening-1.jpg', title: 'Opening Program', note: 'Babel Youthpreneur' },
+  { src: './images/doc-green-2.jpg', title: 'Green Economy', note: 'Sesi edukasi' },
+  { src: './images/doc-kur-1.jpg', title: 'Pembiayaan KUR', note: 'Akses permodalan' },
+  { src: './images/doc-closing-2.jpg', title: 'Closing Ceremony', note: 'Apresiasi karya' },
 ]
 
 export default function DokumentasiPreview() {
@@ -78,3 +78,4 @@ export default function DokumentasiPreview() {
     </section>
   )
 }
+

@@ -5,16 +5,16 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const logos = [
-  { src: '/images/logo-kemenkeu-final.png', name: 'Kementerian Keuangan', type: 'instansi' },
-  { src: '/images/logo-djpb-final.jpeg', name: 'DJPb', type: 'instansi' },
-  { src: '/images/logo-beacukai-final.png', name: 'Bea Cukai', type: 'instansi' },
-  { src: '/images/logo-ubb-final.png', name: 'UBB', type: 'universitas' },
-  { src: '/images/logo-iain-final.png', name: 'IAIN SAS', type: 'universitas' },
-  { src: '/images/logo-pertiba-final.png', name: 'Universitas Pertiba', type: 'universitas' },
-  { src: '/images/logo-unmuh-final.png', name: 'Unmuh Babel', type: 'universitas' },
-  { src: '/images/logo-unaba-final.png', name: 'Unaba', type: 'universitas' },
-  { src: '/images/logo-eljohn-final.png', name: 'EL JOHN', type: 'mitra' },
-  { src: '/images/logo-tungtau-final.jpeg', name: 'Waroeng Tung Tau', type: 'mitra' },
+  { src: './images/logo-kemenkeu-final.png', name: 'Kementerian Keuangan', type: 'instansi' },
+  { src: './images/logo-djpb-final.jpeg', name: 'DJPb', type: 'instansi' },
+  { src: './images/logo-beacukai-final.png', name: 'Bea Cukai', type: 'instansi' },
+  { src: './images/logo-ubb-final.png', name: 'UBB', type: 'universitas' },
+  { src: './images/logo-iain-final.png', name: 'IAIN SAS', type: 'universitas' },
+  { src: './images/logo-pertiba-final.png', name: 'Universitas Pertiba', type: 'universitas' },
+  { src: './images/logo-unmuh-final.png', name: 'Unmuh Babel', type: 'universitas' },
+  { src: './images/logo-unaba-final.png', name: 'Unaba', type: 'universitas' },
+  { src: './images/logo-eljohn-final.png', name: 'EL JOHN', type: 'mitra' },
+  { src: './images/logo-tungtau-final.jpeg', name: 'Waroeng Tung Tau', type: 'mitra' },
 ]
 
 export default function LogoSection() {
@@ -82,5 +82,6 @@ export default function LogoSection() {
     </section>
   )
 }
+
 
 

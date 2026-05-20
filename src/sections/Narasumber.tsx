@@ -9,37 +9,37 @@ const speakers = [
     name: 'Junanto Kurniawan',
     role: 'Ketua Pokja Teknis UMKM, Kepala Bea Cukai Pangkalpinang',
     topic: 'Sinergi Kemenkeu dalam Pemberdayaan UMKM \u2014 kolaborasi lintas unit Kemenkeu untuk mendukung pengembangan UMKM berkelanjutan.',
-    image: '/images/narsum-junanto.jpeg',
+    image: './images/narsum-junanto.jpeg',
   },
   {
     name: 'Fahry Reza, S.E., M.Ak.',
     role: 'Dekan Fakultas Bisnis Unmuh',
     topic: 'Model Bisnis, Company Profile dan Strategi Pengembangan UMKM \u2014 penerapan model bisnis untuk meningkatkan daya saing UMKM.',
-    image: '/images/narsum-fahry.jpeg',
+    image: './images/narsum-fahry.jpeg',
   },
   {
     name: 'Cento Sadewa',
     role: 'Creative Director, MNJD Creative',
     topic: 'Product Catalog, Foto dan Video Promosi \u2014 teknik fotografi dan videografi untuk konten promosi produk UMKM yang profesional.',
-    image: '/images/narsum-cento.jpeg',
+    image: './images/narsum-cento.jpeg',
   },
   {
     name: 'Mariany Bunawan',
     role: 'Owner Waroeng Tung Tau',
     topic: 'Pengembangan Ide Bisnis Kreatif \u2014 pengalaman membangun bisnis dari nol: Waroeng Tung Tau dan Sumo Suki, serta hosting podcast OTT.',
-    image: '/images/narsum-mariany.jpeg',
+    image: './images/narsum-mariany.jpeg',
   },
   {
     name: 'Enti Hidayati',
     role: 'Content Creator',
     topic: 'Pengembangan Ide Bisnis Kreatif dan Strategi Promosi \u2014 creative thinking dan inovasi untuk menghasilkan ide bisnis yang relevan dan bernilai tambah.',
-    image: '/images/narsum-enti.jpg',
+    image: './images/narsum-enti.jpg',
   },
   {
     name: 'Dona Andrianto',
     role: 'Perwakilan BRI Cabang Pangkalpinang',
     topic: 'Peluang Pembiayaan KUR \u2014 panduan praktis akses Kredit Usaha Rakyat bagi mahasiswa dan UMKM.',
-    image: '/images/speaker-6.jpg',
+    image: './images/speaker-6.jpg',
   },
 ]
 
@@ -118,4 +118,5 @@ export default function Narasumber() {
     </section>
   )
 }
+
 

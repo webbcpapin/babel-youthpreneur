@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+﻿import { useRef, useEffect } from 'react'
 
 interface WaveTextProps {
   direction?: 'ltr' | 'rtl'
@@ -109,3 +109,4 @@ export default function WaveText({
     />
   )
 }
+

@@ -18,16 +18,16 @@ const challenge2 = [
 ]
 
 const karyaPeserta = [
-  { label: 'Kelompok 01 - Madu RR Arisi', cpkp: '/files/hasil/cpkp-01.pdf', ide: '/files/hasil/ide-01.pdf' },
-  { label: 'Kelompok 02 - JJ Catering', cpkp: '/files/hasil/cpkp-02.pdf', ide: '/files/hasil/ide-02.pdf' },
-  { label: 'Kelompok 03 - DnD Cake N Cookies', cpkp: '/files/hasil/cpkp-03.pdf', ide: '/files/hasil/ide-03.pdf' },
-  { label: 'Kelompok 04 - Deshanda Craft', cpkp: '/files/hasil/cpkp-04.pdf', ide: '/files/hasil/ide-04.pdf' },
-  { label: "Kelompok 05 - Kamiz Choc's", cpkp: '/files/hasil/cpkp-05.pdf', ide: '/files/hasil/ide-05.pdf' },
-  { label: 'Kelompok 06 - Keripik Cumi Nina', cpkp: '/files/hasil/cpkp-06.pdf', ide: '/files/hasil/ide-06.pdf' },
-  { label: 'Kelompok 07 - RM Raja Lele', cpkp: '/files/hasil/cpkp-07.pdf', ide: '/files/hasil/ide-07.pdf' },
-  { label: 'Kelompok 08 - 3 Shesca Decoupage', cpkp: '/files/hasil/cpkp-08.pdf', ide: '/files/hasil/ide-08.pdf' },
-  { label: 'Kelompok 09 - PT Central Charcoal Babelindo', cpkp: '/files/hasil/cpkp-09.pdf', ide: '/files/hasil/ide-09.pdf' },
-  { label: 'Kelompok 10 - Deviz Indo Bangka', cpkp: '/files/hasil/cpkp-10.pdf', ide: '/files/hasil/ide-10.pdf' },
+  { label: 'Kelompok 01 - Madu RR Arisi', cpkp: './files/hasil/cpkp-01.pdf', ide: './files/hasil/ide-01.pdf' },
+  { label: 'Kelompok 02 - JJ Catering', cpkp: './files/hasil/cpkp-02.pdf', ide: './files/hasil/ide-02.pdf' },
+  { label: 'Kelompok 03 - DnD Cake N Cookies', cpkp: './files/hasil/cpkp-03.pdf', ide: './files/hasil/ide-03.pdf' },
+  { label: 'Kelompok 04 - Deshanda Craft', cpkp: './files/hasil/cpkp-04.pdf', ide: './files/hasil/ide-04.pdf' },
+  { label: "Kelompok 05 - Kamiz Choc's", cpkp: './files/hasil/cpkp-05.pdf', ide: './files/hasil/ide-05.pdf' },
+  { label: 'Kelompok 06 - Keripik Cumi Nina', cpkp: './files/hasil/cpkp-06.pdf', ide: './files/hasil/ide-06.pdf' },
+  { label: 'Kelompok 07 - RM Raja Lele', cpkp: './files/hasil/cpkp-07.pdf', ide: './files/hasil/ide-07.pdf' },
+  { label: 'Kelompok 08 - 3 Shesca Decoupage', cpkp: './files/hasil/cpkp-08.pdf', ide: './files/hasil/ide-08.pdf' },
+  { label: 'Kelompok 09 - PT Central Charcoal Babelindo', cpkp: './files/hasil/cpkp-09.pdf', ide: './files/hasil/ide-09.pdf' },
+  { label: 'Kelompok 10 - Deviz Indo Bangka', cpkp: './files/hasil/cpkp-10.pdf', ide: './files/hasil/ide-10.pdf' },
 ]
 
 export default function Hasil() {
@@ -104,3 +104,4 @@ export default function Hasil() {
     </section>
   )
 }
+

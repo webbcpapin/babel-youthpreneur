@@ -11,36 +11,36 @@ const agendaGaleri = [
     title: 'Babel Youthpreneur',
     subtitle: 'Rangkaian pembukaan dan pengenalan program',
     photos: [
-      { src: '/images/doc-opening-1.jpg', alt: 'Dokumentasi Babel Youthpreneur 1', caption: 'Pembukaan rangkaian Babel Youthpreneur' },
-      { src: '/images/doc-opening-2.jpg', alt: 'Dokumentasi Babel Youthpreneur 2', caption: 'Kolaborasi peserta, mitra, dan Kemenkeu Satu Babel' },
-      { src: '/images/doc-opening-3.jpg', alt: 'Dokumentasi Babel Youthpreneur 3', caption: 'Antusiasme peserta dalam sesi awal program' },
+      { src: './images/doc-opening-1.jpg', alt: 'Dokumentasi Babel Youthpreneur 1', caption: 'Pembukaan rangkaian Babel Youthpreneur' },
+      { src: './images/doc-opening-2.jpg', alt: 'Dokumentasi Babel Youthpreneur 2', caption: 'Kolaborasi peserta, mitra, dan Kemenkeu Satu Babel' },
+      { src: './images/doc-opening-3.jpg', alt: 'Dokumentasi Babel Youthpreneur 3', caption: 'Antusiasme peserta dalam sesi awal program' },
     ],
   },
   {
     title: 'Green Economy',
     subtitle: 'Penguatan wawasan usaha berkelanjutan',
     photos: [
-      { src: '/images/doc-green-1.jpg', alt: 'Dokumentasi Green Economy 1', caption: 'Sesi materi Green Economy' },
-      { src: '/images/doc-green-2.jpg', alt: 'Dokumentasi Green Economy 2', caption: 'Diskusi pengembangan usaha berkelanjutan' },
-      { src: '/images/doc-green-3.jpg', alt: 'Dokumentasi Green Economy 3', caption: 'Pendampingan ide bisnis ramah lingkungan' },
+      { src: './images/doc-green-1.jpg', alt: 'Dokumentasi Green Economy 1', caption: 'Sesi materi Green Economy' },
+      { src: './images/doc-green-2.jpg', alt: 'Dokumentasi Green Economy 2', caption: 'Diskusi pengembangan usaha berkelanjutan' },
+      { src: './images/doc-green-3.jpg', alt: 'Dokumentasi Green Economy 3', caption: 'Pendampingan ide bisnis ramah lingkungan' },
     ],
   },
   {
     title: 'Pembiayaan KUR',
     subtitle: 'Pembekalan akses permodalan untuk UMKM',
     photos: [
-      { src: '/images/doc-kur-1.jpg', alt: 'Dokumentasi Pembiayaan KUR 1', caption: 'Pembekalan peluang pembiayaan KUR' },
-      { src: '/images/doc-kur-2.jpg', alt: 'Dokumentasi Pembiayaan KUR 2', caption: 'Diskusi akses permodalan bagi UMKM' },
-      { src: '/images/doc-kur-3.jpg', alt: 'Dokumentasi Pembiayaan KUR 3', caption: 'Interaksi peserta dalam sesi pembiayaan' },
+      { src: './images/doc-kur-1.jpg', alt: 'Dokumentasi Pembiayaan KUR 1', caption: 'Pembekalan peluang pembiayaan KUR' },
+      { src: './images/doc-kur-2.jpg', alt: 'Dokumentasi Pembiayaan KUR 2', caption: 'Diskusi akses permodalan bagi UMKM' },
+      { src: './images/doc-kur-3.jpg', alt: 'Dokumentasi Pembiayaan KUR 3', caption: 'Interaksi peserta dalam sesi pembiayaan' },
     ],
   },
   {
     title: 'Closing Ceremony',
     subtitle: 'Apresiasi karya dan penutupan program',
     photos: [
-      { src: '/images/doc-closing-1.jpg', alt: 'Dokumentasi Closing Ceremony 1', caption: 'Closing Ceremony Babel Youthpreneur 2025' },
-      { src: '/images/doc-closing-2.jpg', alt: 'Dokumentasi Closing Ceremony 2', caption: 'Apresiasi karya dan prestasi peserta' },
-      { src: '/images/doc-closing-3.jpg', alt: 'Dokumentasi Closing Ceremony 3', caption: 'Momen penutupan bersama mitra dan peserta' },
+      { src: './images/doc-closing-1.jpg', alt: 'Dokumentasi Closing Ceremony 1', caption: 'Closing Ceremony Babel Youthpreneur 2025' },
+      { src: './images/doc-closing-2.jpg', alt: 'Dokumentasi Closing Ceremony 2', caption: 'Apresiasi karya dan prestasi peserta' },
+      { src: './images/doc-closing-3.jpg', alt: 'Dokumentasi Closing Ceremony 3', caption: 'Momen penutupan bersama mitra dan peserta' },
     ],
   },
 ]
@@ -113,3 +113,4 @@ export default function DokumentasiPage() {
     </div>
   )
 }
+

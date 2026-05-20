@@ -42,7 +42,7 @@ export default function CTA() {
     >
       {/* Background image */}
       <img
-        src="/images/cta-bg.jpg"
+        src="./images/cta-bg.jpg"
         alt="Bangka Belitung"
         className="absolute inset-0 w-full h-full object-cover"
         style={{ filter: 'brightness(0.25)' }}
@@ -91,4 +91,5 @@ export default function CTA() {
     </section>
   )
 }
+
 

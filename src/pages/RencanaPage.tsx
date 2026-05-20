@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+﻿import { useRef, useEffect } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Navigation from '../sections/Navigation'
@@ -123,7 +123,7 @@ export default function RencanaPage() {
               </p>
               <div className="space-y-4">
                 {[
-                  { old: 'Event 1-2 hari', new: 'Program ±2 bulan per batch' },
+                  { old: 'Event 1-2 hari', new: 'Program Â±2 bulan per batch' },
                   { old: 'Fokus kompetisi', new: 'Fokus pendampingan & implementasi' },
                   { old: 'Monitoring minimal', new: 'Monitoring mingguan' },
                   { old: 'Output terbatas', new: 'Output digital langsung digunakan UMKM' },
@@ -143,7 +143,7 @@ export default function RencanaPage() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: 'Durasi', value: '±2 bulan per batch' },
+                  { label: 'Durasi', value: 'Â±2 bulan per batch' },
                   { label: 'Metode', value: 'Hybrid (Offline 1x/bulan + Online mingguan)' },
                   { label: 'Pendampingan', value: '2-3 mahasiswa per 1 UMKM' },
                   { label: 'UMKM', value: '10 pelaku usaha binaan' },
@@ -323,3 +323,4 @@ export default function RencanaPage() {
     </div>
   )
 }
+
