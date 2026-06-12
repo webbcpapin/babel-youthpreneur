@@ -1,3 +1,28 @@
+# Babel Youthpreneur
+
+Website publik Babel Youthpreneur dengan tambahan:
+
+- `/monitoring/` untuk Babel Youthpreneur Monitoring System.
+- `/kurasi/` untuk form Profiling dan Kurasi UMKM Babel Youthpreneur 2026.
+
+## Backend Google Sheet untuk Form Kurasi
+
+Form `/kurasi/` disiapkan untuk menulis data ke Google Sheet:
+
+`https://docs.google.com/spreadsheets/d/1PqRraw7Qt5nfpWECAemnTRH4edrKDZfti0gBImmgDbI/`
+
+Aktivasi backend:
+
+1. Buka Google Sheet tujuan.
+2. Pilih Extensions -> Apps Script.
+3. Salin isi `apps-script/kurasi-backend.gs` ke editor Apps Script.
+4. Deploy sebagai Web App dengan akses "Anyone".
+5. Salin URL Web App.
+6. Isi URL tersebut ke `public/kurasi/config.js` pada `appsScriptUrl`.
+7. Commit dan push ulang.
+
+Data akan masuk ke sheet bernama `Kurasi UMKM 2026`.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

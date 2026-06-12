@@ -64,6 +64,18 @@ export default function Hero() {
             >
               Buka Monitoring System
             </a>
+            <a
+              href="./kurasi/"
+              className="font-body text-xs font-semibold uppercase tracking-[0.08em] inline-block transition-colors duration-300"
+              style={{
+                color: '#f5f2ed',
+                border: '1px solid rgba(245,242,237,0.28)',
+                borderRadius: 100,
+                padding: '10px 28px',
+              }}
+            >
+              Isi Kurasi UMKM
+            </a>
             <span
               className="font-body text-xs font-semibold uppercase tracking-[0.08em] inline-block"
               style={{

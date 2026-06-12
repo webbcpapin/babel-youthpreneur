@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Profiling dan Kurasi UMKM | Babel Youthpreneur 2026</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1d1b18;
+        --muted: #6d665e;
+        --line: #e5ddd1;
+        --paper: #fbf8f2;
+        --panel: #ffffff;
+        --accent: #8b5e34;
+        --accent-2: #2f6f62;
+        --danger: #9d3131;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        background: var(--paper);
+        color: var(--ink);
+      }
+
+      a { color: inherit; }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px clamp(18px, 5vw, 56px);
+        background: rgba(251, 248, 242, 0.94);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+      }
+
+      .brand {
+        font-family: "Instrument Serif", serif;
+        font-size: 22px;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .nav a {
+        text-decoration: none;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: minmax(220px, 300px) minmax(0, 880px);
+        gap: clamp(22px, 4vw, 48px);
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 48px clamp(18px, 5vw, 56px) 72px;
+      }
+
+      .intro {
+        position: sticky;
+        top: 86px;
+        align-self: start;
+      }
+
+      .eyebrow {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 12px 0 18px;
+        font-family: "Instrument Serif", serif;
+        font-size: clamp(42px, 7vw, 72px);
+        line-height: 0.98;
+        font-weight: 400;
+      }
+
+      .lead {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .status-card {
+        margin-top: 26px;
+        padding: 18px;
+        background: #efe5d6;
+        border: 1px solid #ddcdb8;
+      }
+
+      .status-card strong {
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .status-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      form {
+        display: grid;
+        gap: 18px;
+      }
+
+      .section {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: clamp(20px, 4vw, 32px);
+      }
+
+      .section-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 22px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .section h2 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .section-number {
+        color: var(--accent);
+        font-weight: 800;
+        letter-spacing: 0.1em;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field.full { grid-column: 1 / -1; }
+
+      label,
+      legend {
+        color: #2a2724;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      .hint {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: 44px;
+        border: 1px solid var(--line);
+        background: #fffdf8;
+        color: var(--ink);
+        padding: 11px 12px;
+        font: inherit;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 112px;
+        resize: vertical;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(139, 94, 52, 0.14);
+      }
+
+      fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .choices {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .choice {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        min-height: 44px;
+        padding: 11px 12px;
+        background: #fffdf8;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .choice input {
+        width: auto;
+        min-height: auto;
+        margin-top: 2px;
+      }
+
+      .actions {
+        position: sticky;
+        bottom: 0;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px;
+        background: rgba(251, 248, 242, 0.94);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(12px);
+      }
+
+      button {
+        min-height: 44px;
+        border: 1px solid var(--ink);
+        background: var(--ink);
+        color: white;
+        padding: 0 18px;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: transparent;
+        color: var(--ink);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .message {
+        display: none;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        background: #fffdf8;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .message.show {
+        display: block;
+      }
+
+      .message.error {
+        border-color: rgba(157, 49, 49, 0.35);
+        color: var(--danger);
+      }
+
+      @media (max-width: 860px) {
+        .shell { grid-template-columns: 1fr; }
+        .intro { position: static; }
+        .grid,
+        .choices { grid-template-columns: 1fr; }
+        .nav { display: none; }
+        .actions { flex-direction: column; }
+        button { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../">Babel Youthpreneur</a>
+      <nav class="nav">
+        <a href="../">Beranda</a>
+        <a href="../monitoring/">Monitoring</a>
+        <a href="./">Kurasi UMKM</a>
+      </nav>
+    </header>
+
+    <main class="shell">
+      <aside class="intro">
+        <p class="eyebrow">Profiling dan Kurasi UMKM</p>
+        <h1>Babel Youthpreneur 2026</h1>
+        <p class="lead">
+          Form ini digunakan untuk memetakan profil, kesiapan usaha, kebutuhan pendampingan,
+          akses pembiayaan, kanal pemasaran, dan kesiapan UMKM menerima mahasiswa selama program.
+        </p>
+        <div class="status-card" id="backendStatus">
+          <strong>Status backend</strong>
+          <p>Memeriksa koneksi Google Sheet.</p>
+        </div>
+      </aside>
+
+      <form id="kurasiForm">
+        <div class="message" id="formMessage"></div>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Identitas UMKM</h2>
+            <span class="section-number">01</span>
+          </div>
+          <div class="grid">
+            <div class="field">
+              <label for="nama_umkm">Nama UMKM</label>
+              <input id="nama_umkm" name="nama_umkm" required />
+            </div>
+            <div class="field">
+              <label for="nama_pemilik">Nama pemilik atau penanggung jawab</label>
+              <input id="nama_pemilik" name="nama_pemilik" required />
+            </div>
+            <div class="field">
+              <label for="nomor_wa">Nomor WhatsApp aktif</label>
+              <input id="nomor_wa" name="nomor_wa" inputmode="tel" required />
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" />
+            </div>
+            <div class="field full">
+              <label for="alamat_usaha">Alamat lengkap usaha</label>
+              <textarea id="alamat_usaha" name="alamat_usaha" required></textarea>
+            </div>
+            <div class="field">
+              <label for="kabupaten_kota">Kabupaten atau kota</label>
+              <select id="kabupaten_kota" name="kabupaten_kota" required>
+                <option value="">Pilih wilayah</option>
+                <option>Kota Pangkalpinang</option>
+                <option>Kabupaten Bangka</option>
+                <option>Kabupaten Bangka Barat</option>
+                <option>Kabupaten Bangka Tengah</option>
+                <option>Kabupaten Bangka Selatan</option>
+                <option>Kabupaten Belitung</option>
+                <option>Kabupaten Belitung Timur</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="tahun_berdiri">Tahun mulai usaha</label>
+              <input id="tahun_berdiri" name="tahun_berdiri" type="number" min="1900" max="2026" />
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Profil Usaha</h2>
+            <span class="section-number">02</span>
+          </div>
+          <div class="grid">
+            <fieldset class="field full">
+              <legend>Bidang usaha utama</legend>
+              <p class="hint">Kategori disesuaikan dari catatan kurasi: hasil perikanan menjadi produk olahan, dan industri kecil menengah tidak digunakan sebagai kategori.</p>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="bidang_usaha" value="Kuliner/makanan/minuman" required />Kuliner, makanan, atau minuman</label>
+                <label class="choice"><input type="radio" name="bidang_usaha" value="Produk olahan" />Produk olahan</label>
+                <label class="choice"><input type="radio" name="bidang_usaha" value="Fashion/kriya" />Fashion atau kriya</label>
+                <label class="choice"><input type="radio" name="bidang_usaha" value="Perdagangan/ritel" />Perdagangan atau ritel</label>
+                <label class="choice"><input type="radio" name="bidang_usaha" value="Jasa" />Jasa</label>
+                <label class="choice"><input type="radio" name="bidang_usaha" value="Agribisnis" />Agribisnis</label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label for="produk_utama">Produk atau layanan utama</label>
+              <input id="produk_utama" name="produk_utama" required />
+            </div>
+            <div class="field">
+              <label for="kapasitas_produksi">Kapasitas produksi per bulan</label>
+              <input id="kapasitas_produksi" name="kapasitas_produksi" placeholder="Contoh: 500 botol / 250 pcs" />
+            </div>
+            <div class="field">
+              <label for="omzet_bulanan">Rata-rata omzet bulanan</label>
+              <select id="omzet_bulanan" name="omzet_bulanan">
+                <option value="">Pilih rentang</option>
+                <option>Di bawah Rp5 juta</option>
+                <option>Rp5 juta sampai Rp25 juta</option>
+                <option>Rp25 juta sampai Rp50 juta</option>
+                <option>Rp50 juta sampai Rp100 juta</option>
+                <option>Di atas Rp100 juta</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="jumlah_tenaga_kerja">Jumlah tenaga kerja</label>
+              <input id="jumlah_tenaga_kerja" name="jumlah_tenaga_kerja" type="number" min="0" />
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Legalitas dan Operasional</h2>
+            <span class="section-number">03</span>
+          </div>
+          <div class="grid">
+            <fieldset class="field full">
+              <legend>Legalitas atau dokumen yang sudah dimiliki</legend>
+              <p class="hint">Bisa pilih lebih dari satu.</p>
+              <div class="choices">
+                <label class="choice"><input type="checkbox" name="legalitas" value="NIB" />NIB</label>
+                <label class="choice"><input type="checkbox" name="legalitas" value="PIRT" />PIRT</label>
+                <label class="choice"><input type="checkbox" name="legalitas" value="Sertifikat halal" />Sertifikat halal</label>
+                <label class="choice"><input type="checkbox" name="legalitas" value="Merek dagang" />Merek dagang</label>
+                <label class="choice"><input type="checkbox" name="legalitas" value="NPWP" />NPWP</label>
+                <label class="choice"><input type="checkbox" name="legalitas" value="Belum ada" />Belum ada</label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label for="status_tempat_usaha">Status tempat usaha</label>
+              <select id="status_tempat_usaha" name="status_tempat_usaha">
+                <option value="">Pilih status</option>
+                <option>Milik sendiri</option>
+                <option>Sewa</option>
+                <option>Rumah produksi</option>
+                <option>Berbagi tempat produksi</option>
+                <option>Belum tetap</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="tantangan_operasional">Tantangan operasional utama</label>
+              <input id="tantangan_operasional" name="tantangan_operasional" />
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Pemasaran dan Produk</h2>
+            <span class="section-number">04</span>
+          </div>
+          <div class="grid">
+            <fieldset class="field full">
+              <legend>Kanal penjualan atau pemasaran yang digunakan</legend>
+              <p class="hint">Bisa pilih lebih dari satu.</p>
+              <div class="choices">
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Toko fisik" />Toko fisik</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Reseller" />Reseller</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Instagram" />Instagram</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="TikTok" />TikTok</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="WhatsApp Business" />WhatsApp Business</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Marketplace" />Marketplace</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Pameran/bazar" />Pameran atau bazar</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Belum ada kanal digital" />Belum ada kanal digital</label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label for="akun_media_sosial">Akun media sosial usaha</label>
+              <input id="akun_media_sosial" name="akun_media_sosial" placeholder="@namaakun atau link" />
+            </div>
+            <div class="field">
+              <label for="link_marketplace">Link marketplace atau website</label>
+              <input id="link_marketplace" name="link_marketplace" type="url" />
+            </div>
+            <div class="field full">
+              <label for="link_katalog_produk">Link katalog atau foto produk</label>
+              <p class="hint">Jika ada banyak foto produk, masukkan link folder Google Drive, katalog PDF, Instagram highlight, atau link marketplace.</p>
+              <input id="link_katalog_produk" name="link_katalog_produk" type="url" />
+            </div>
+            <div class="field full">
+              <label for="storytelling_produk">Storytelling atau narasi produk</label>
+              <p class="hint">Storytelling adalah cerita singkat yang menjelaskan asal produk, nilai unik, proses, bahan, dampak, atau alasan pelanggan perlu memilih produk. Contoh: "Keripik ini dibuat dari hasil kebun warga Desa X, diproses tanpa pengawet, dan membantu ibu rumah tangga sekitar mendapatkan penghasilan tambahan."</p>
+              <textarea id="storytelling_produk" name="storytelling_produk"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Pembiayaan dan Kebutuhan Pendampingan</h2>
+            <span class="section-number">05</span>
+          </div>
+          <div class="grid">
+            <div class="field">
+              <label for="pernah_pembiayaan">Pernah mengakses pembiayaan usaha?</label>
+              <select id="pernah_pembiayaan" name="pernah_pembiayaan">
+                <option value="">Pilih jawaban</option>
+                <option>Ya</option>
+                <option>Belum pernah</option>
+                <option>Sedang proses pengajuan</option>
+              </select>
+            </div>
+            <fieldset class="field">
+              <legend>Produk pembiayaan yang pernah diakses</legend>
+              <p class="hint">Bisa pilih lebih dari satu jika pernah mengakses pembiayaan.</p>
+              <div class="choices">
+                <label class="choice"><input type="checkbox" name="produk_pembiayaan" value="KUR" />KUR</label>
+                <label class="choice"><input type="checkbox" name="produk_pembiayaan" value="Mekaar" />Mekaar</label>
+                <label class="choice"><input type="checkbox" name="produk_pembiayaan" value="Finance/leasing" />Finance atau leasing</label>
+                <label class="choice"><input type="checkbox" name="produk_pembiayaan" value="Dana bergulir" />Dana bergulir</label>
+                <label class="choice"><input type="checkbox" name="produk_pembiayaan" value="Koperasi" />Koperasi</label>
+                <label class="choice"><input type="checkbox" name="produk_pembiayaan" value="Pinjaman keluarga/pribadi" />Pinjaman keluarga atau pribadi</label>
+              </div>
+            </fieldset>
+            <fieldset class="field full">
+              <legend>Kebutuhan pendampingan prioritas</legend>
+              <p class="hint">Bisa pilih lebih dari satu.</p>
+              <div class="choices">
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Legalitas" />Legalitas</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Sertifikasi halal/PIRT" />Sertifikasi halal atau PIRT</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Branding dan desain kemasan" />Branding dan desain kemasan</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Foto/katalog produk" />Foto atau katalog produk</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Konten media sosial" />Konten media sosial</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Marketplace" />Marketplace</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Pembukuan sederhana" />Pembukuan sederhana</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Akses pembiayaan" />Akses pembiayaan</label>
+              </div>
+            </fieldset>
+            <div class="field full">
+              <label for="catatan_kebutuhan">Catatan kebutuhan khusus</label>
+              <textarea id="catatan_kebutuhan" name="catatan_kebutuhan"></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Kesiapan Program</h2>
+            <span class="section-number">06</span>
+          </div>
+          <div class="grid">
+            <fieldset class="field full">
+              <legend>Output yang bersedia dikembangkan bersama mahasiswa</legend>
+              <p class="hint">Bisa pilih lebih dari satu.</p>
+              <div class="choices">
+                <label class="choice"><input type="checkbox" name="output_program" value="Konten promosi" />Konten promosi</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Foto produk" />Foto produk</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Katalog produk" />Katalog produk</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Landing page sederhana" />Landing page sederhana</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Marketplace/etalase digital" />Marketplace atau etalase digital</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Pembukuan sederhana" />Pembukuan sederhana</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Materi pitching" />Materi pitching</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Perbaikan kemasan" />Perbaikan kemasan</label>
+              </div>
+            </fieldset>
+            <div class="field">
+              <label for="bersedia_magang">Bersedia menerima 3 mahasiswa magang selama program?</label>
+              <select id="bersedia_magang" name="bersedia_magang" required>
+                <option value="">Pilih jawaban</option>
+                <option>Ya, bersedia menerima 3 mahasiswa</option>
+                <option>Bersedia, tetapi perlu diskusi jadwal</option>
+                <option>Belum bersedia</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="jadwal_pendampingan">Hari atau jam yang memungkinkan untuk pendampingan</label>
+              <input id="jadwal_pendampingan" name="jadwal_pendampingan" placeholder="Contoh: Senin-Rabu sore" />
+            </div>
+            <div class="field full">
+              <label for="catatan_magang">Catatan untuk penempatan mahasiswa</label>
+              <textarea id="catatan_magang" name="catatan_magang" placeholder="Contoh: area kerja, aktivitas yang bisa dibantu, aturan kunjungan, atau kontak PIC di lokasi."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="button" class="secondary" id="saveDraft">Simpan draft</button>
+          <button type="submit" id="submitButton">Kirim ke Google Sheet</button>
+        </div>
+      </form>
+    </main>
+
+    <script src="./config.js"></script>
+    <script src="./kurasi.js"></script>
+  </body>
+</html>

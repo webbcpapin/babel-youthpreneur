@@ -6,6 +6,7 @@ const navLinks = [
   { label: 'Evaluasi 2025', href: '/evaluasi' },
   { label: 'Rencana 2026', href: '/rencana-2026' },
   { label: 'Monitoring System', href: './monitoring/', external: true },
+  { label: 'Kurasi UMKM', href: './kurasi/', external: true },
   { label: 'Dokumentasi', href: '/dokumentasi' },
 ]
 

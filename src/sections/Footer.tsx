@@ -40,6 +40,7 @@
                 { label: 'Tentang Program', href: './#/' },
                 { label: 'UMKM Mitra', href: './#/' },
                 { label: 'Monitoring System', href: './monitoring/' },
+                { label: 'Profiling dan Kurasi UMKM', href: './kurasi/' },
                 { label: 'Dokumentasi', href: './#/dokumentasi' },
               ].map((link) => (
                 <a
