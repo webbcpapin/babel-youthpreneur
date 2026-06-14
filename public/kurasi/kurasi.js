@@ -121,7 +121,7 @@ form.addEventListener('submit', async (event) => {
     await submitToSheet(payload)
     localStorage.removeItem(draftKey)
     form.reset()
-    setMessage('Data berhasil dikirim. Jika koneksi Google Sheet sudah benar, baris baru akan muncul di sheet "Kurasi UMKM 2026".', 'info')
+    setMessage('Data berhasil dikirim. Terima kasih telah mengikuti kurasi Program Babel Youthpreneur', 'info')
   } catch (error) {
     setMessage(`Gagal mengirim data: ${error.message || error}. Draft disimpan di browser ini.`, 'error')
     localStorage.setItem(draftKey, JSON.stringify(payload))
