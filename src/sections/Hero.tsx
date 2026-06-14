@@ -1,4 +1,4 @@
-﻿import DotField from './DotField'
+import DotField from './DotField'
 
 export default function Hero() {
   return (
@@ -28,7 +28,7 @@ export default function Hero() {
             }}
           >
             <img
-              src="./images/byp-2026-logo-complete.png"
+              src="./images/byp-2026-logo-complete-transparent.png"
               alt="Babel Youthpreneur 2026"
               style={{
                 display: 'block',

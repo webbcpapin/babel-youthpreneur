@@ -8,7 +8,7 @@
   "theme_color": "#0f3d5e",
   "icons": [
     {
-      "src": "../../images/byp-2026-logo-icon.png",
+      "src": "../../images/byp-2026-logo-icon-transparent.png",
       "sizes": "512x512",
       "type": "image/png"
     }

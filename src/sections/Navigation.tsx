@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 const navLinks = [
@@ -58,7 +58,7 @@ export default function Navigation() {
               }}
             >
               <img
-                src="./images/byp-2026-logo-icon.png"
+                src="./images/byp-2026-logo-icon-transparent.png"
                 alt=""
                 style={{ width: 34, height: 34, objectFit: 'contain' }}
               />

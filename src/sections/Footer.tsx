@@ -1,4 +1,4 @@
-﻿export default function Footer() {
+export default function Footer() {
   return (
     <footer
       className="w-full"
@@ -20,7 +20,7 @@
               }}
             >
               <img
-                src="./images/byp-2026-logo-complete.png"
+                src="./images/byp-2026-logo-complete-transparent.png"
                 alt="Babel Youthpreneur 2026"
                 style={{ display: 'block', width: '100%', height: 'auto' }}
               />

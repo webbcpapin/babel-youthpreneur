@@ -1,4 +1,4 @@
-﻿import { useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Navigation from '../sections/Navigation'
@@ -91,7 +91,7 @@ export default function RencanaPage() {
       <section className="relative w-full flex items-center justify-center" style={{ minHeight: 500, paddingTop: 140 }}>
         <div className="text-center px-6 max-w-[900px] mx-auto">
           <div className="mx-auto mb-8" style={{ width: 'min(520px, 86vw)', padding: 8 }}>
-            <img src="./images/byp-2026-logo-complete.png" alt="Babel Youthpreneur 2026" style={{ display: 'block', width: '100%', height: 'auto' }} />
+            <img src="./images/byp-2026-logo-complete-transparent.png" alt="Babel Youthpreneur 2026" style={{ display: 'block', width: '100%', height: 'auto' }} />
           </div>
           <p className="font-body text-xs font-semibold uppercase tracking-[0.18em] mb-4" style={{ color: '#c9a87c' }}>
             MELANGKAH LEBIH JAUH
@@ -149,7 +149,7 @@ export default function RencanaPage() {
               </p>
               <div className="space-y-4">
                 {[
-                  { old: 'Event 1-2 hari', new: 'Program Â±2 bulan per batch' },
+                  { old: 'Event 1-2 hari', new: 'Program ±2 bulan per batch' },
                   { old: 'Fokus kompetisi', new: 'Fokus pendampingan & implementasi' },
                   { old: 'Monitoring minimal', new: 'Monitoring mingguan' },
                   { old: 'Output terbatas', new: 'Output digital langsung digunakan UMKM' },
@@ -169,7 +169,7 @@ export default function RencanaPage() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: 'Durasi', value: 'Â±2 bulan per batch' },
+                  { label: 'Durasi', value: '±2 bulan per batch' },
                   { label: 'Metode', value: 'Hybrid (Offline 1x/bulan + Online mingguan)' },
                   { label: 'Pendampingan', value: '2-3 mahasiswa per 1 UMKM' },
                   { label: 'UMKM', value: '10 pelaku usaha binaan' },
