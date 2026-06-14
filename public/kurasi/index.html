@@ -393,8 +393,13 @@
                 <label class="choice"><input type="radio" name="bidang_usaha" value="Perdagangan/ritel" />Perdagangan atau ritel</label>
                 <label class="choice"><input type="radio" name="bidang_usaha" value="Jasa" />Jasa</label>
                 <label class="choice"><input type="radio" name="bidang_usaha" value="Agribisnis" />Agribisnis</label>
+                <label class="choice"><input type="radio" name="bidang_usaha" value="Lainnya" />Lainnya</label>
               </div>
             </fieldset>
+            <div class="field full">
+              <label for="bidang_usaha_lainnya">Bidang usaha lainnya</label>
+              <input id="bidang_usaha_lainnya" name="bidang_usaha_lainnya" placeholder="Isi jika memilih lainnya" />
+            </div>
             <div class="field">
               <label for="produk_utama">Produk atau layanan utama</label>
               <input id="produk_utama" name="produk_utama" required />
@@ -473,6 +478,7 @@
                 <label class="choice"><input type="checkbox" name="kanal_penjualan" value="TikTok" />TikTok</label>
                 <label class="choice"><input type="checkbox" name="kanal_penjualan" value="WhatsApp Business" />WhatsApp Business</label>
                 <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Marketplace" />Marketplace</label>
+                <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Website" />Website</label>
                 <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Pameran/bazar" />Pameran atau bazar</label>
                 <label class="choice"><input type="checkbox" name="kanal_penjualan" value="Belum ada kanal digital" />Belum ada kanal digital</label>
               </div>
@@ -482,8 +488,13 @@
               <input id="akun_media_sosial" name="akun_media_sosial" placeholder="@namaakun atau link" />
             </div>
             <div class="field">
-              <label for="link_marketplace">Link marketplace atau website</label>
-              <input id="link_marketplace" name="link_marketplace" type="url" />
+              <label for="link_website">Link URL website</label>
+              <input id="link_website" name="link_website" type="url" placeholder="Opsional" />
+            </div>
+            <div class="field full">
+              <label for="link_marketplace">Link URL marketplace</label>
+              <p class="hint">Opsional. Jika lebih dari satu, tulis satu link per baris.</p>
+              <textarea id="link_marketplace" name="link_marketplace" placeholder="Contoh:&#10;https://shopee.co.id/...&#10;https://tokopedia.com/..."></textarea>
             </div>
             <div class="field full">
               <label for="link_katalog_produk">Link katalog atau foto produk</label>
@@ -537,8 +548,19 @@
                 <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Marketplace" />Marketplace</label>
                 <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Pembukuan sederhana" />Pembukuan sederhana</label>
                 <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Akses pembiayaan" />Akses pembiayaan</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Perpajakan Dasar UMKM" />Perpajakan Dasar UMKM</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Ekspor" />Ekspor</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Website" />Website</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Aplikasi UMKM" />Aplikasi UMKM</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Sosial Media" />Sosial Media</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Digital Branding" />Digital Branding</label>
+                <label class="choice"><input type="checkbox" name="kebutuhan_pendampingan" value="Lainnya" />Pilihan Lainnya</label>
               </div>
             </fieldset>
+            <div class="field full">
+              <label for="kebutuhan_pendampingan_lainnya">Kebutuhan pendampingan lainnya</label>
+              <input id="kebutuhan_pendampingan_lainnya" name="kebutuhan_pendampingan_lainnya" placeholder="Sebutkan jika memilih pilihan lainnya" />
+            </div>
             <div class="field full">
               <label for="catatan_kebutuhan">Catatan kebutuhan khusus</label>
               <textarea id="catatan_kebutuhan" name="catatan_kebutuhan"></textarea>
@@ -559,13 +581,22 @@
                 <label class="choice"><input type="checkbox" name="output_program" value="Konten promosi" />Konten promosi</label>
                 <label class="choice"><input type="checkbox" name="output_program" value="Foto produk" />Foto produk</label>
                 <label class="choice"><input type="checkbox" name="output_program" value="Katalog produk" />Katalog produk</label>
-                <label class="choice"><input type="checkbox" name="output_program" value="Landing page sederhana" />Landing page sederhana</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Website" />Website</label>
                 <label class="choice"><input type="checkbox" name="output_program" value="Marketplace/etalase digital" />Marketplace atau etalase digital</label>
                 <label class="choice"><input type="checkbox" name="output_program" value="Pembukuan sederhana" />Pembukuan sederhana</label>
                 <label class="choice"><input type="checkbox" name="output_program" value="Materi pitching" />Materi pitching</label>
                 <label class="choice"><input type="checkbox" name="output_program" value="Perbaikan kemasan" />Perbaikan kemasan</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Aplikasi UMKM" />Aplikasi UMKM</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Dasar Perpajakan UMKM" />Dasar Perpajakan UMKM</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Digital Branding" />Digital Branding</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Pasar Ekspor" />Pasar Ekspor</label>
+                <label class="choice"><input type="checkbox" name="output_program" value="Lainnya" />Pilihan Lainnya</label>
               </div>
             </fieldset>
+            <div class="field full">
+              <label for="output_program_lainnya">Output program lainnya</label>
+              <input id="output_program_lainnya" name="output_program_lainnya" placeholder="Sebutkan jika memilih pilihan lainnya" />
+            </div>
             <div class="field">
               <label for="bersedia_magang">Bersedia menerima 3 mahasiswa magang selama program?</label>
               <select id="bersedia_magang" name="bersedia_magang" required>

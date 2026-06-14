@@ -38,6 +38,13 @@ function collectFormData() {
     data[key] = formData.getAll(key)
   })
 
+  if (typeof data.link_marketplace === 'string') {
+    data.link_marketplace = data.link_marketplace
+      .split(/\r?\n/)
+      .map((url) => url.trim())
+      .filter(Boolean)
+  }
+
   data.user_agent = navigator.userAgent
   data.source_url = window.location.href
   data.sheet_id = config.sheetId || ''
@@ -66,6 +73,12 @@ function restoreDraft() {
       }
 
       const field = form.elements[key]
+      if (key === 'link_marketplace' && Array.isArray(data.link_marketplace)) {
+        if (!field) return
+        field.value = data.link_marketplace.join('\n')
+        return
+      }
+
       if (!field || typeof value !== 'string') return
 
       if (field instanceof RadioNodeList) {
