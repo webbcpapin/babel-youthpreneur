@@ -24,14 +24,11 @@ export default function Hero() {
             className="mx-auto mb-7"
             style={{
               width: 'min(620px, 86vw)',
-              background: '#fff',
-              border: '1px solid rgba(255,255,255,0.16)',
-              padding: 'clamp(10px, 2vw, 18px)',
-              boxShadow: '0 24px 80px rgba(0,0,0,0.28)',
+              padding: 'clamp(4px, 1vw, 10px)',
             }}
           >
             <img
-              src="./images/byp-2026-logo-complete.jpeg"
+              src="./images/byp-2026-logo-complete.png"
               alt="Babel Youthpreneur 2026"
               style={{
                 display: 'block',

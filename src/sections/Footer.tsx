@@ -16,13 +16,11 @@
               style={{
                 width: 240,
                 maxWidth: '100%',
-                background: '#fff',
-                padding: 10,
                 marginBottom: 18,
               }}
             >
               <img
-                src="./images/byp-2026-logo-complete.jpeg"
+                src="./images/byp-2026-logo-complete.png"
                 alt="Babel Youthpreneur 2026"
                 style={{ display: 'block', width: '100%', height: 'auto' }}
               />

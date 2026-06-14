@@ -55,8 +55,6 @@ export default function Navigation() {
               style={{
                 width: 40,
                 height: 40,
-                borderRadius: 12,
-                background: '#fff',
               }}
             >
               <img

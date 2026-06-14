@@ -60,10 +60,6 @@
         width: 36px;
         height: 36px;
         object-fit: contain;
-        background: #fff;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 3px;
       }
 
       .nav {
@@ -99,9 +95,6 @@
       .intro-logo {
         width: min(100%, 280px);
         margin-bottom: 24px;
-        padding: 10px;
-        background: #fff;
-        border: 1px solid var(--line);
       }
 
       .intro-logo img {
@@ -130,25 +123,6 @@
         margin: 0;
         color: var(--muted);
         line-height: 1.75;
-      }
-
-      .status-card {
-        margin-top: 26px;
-        padding: 18px;
-        background: #efe5d6;
-        border: 1px solid #ddcdb8;
-      }
-
-      .status-card strong {
-        display: block;
-        margin-bottom: 8px;
-      }
-
-      .status-card p {
-        margin: 0;
-        color: var(--muted);
-        font-size: 13px;
-        line-height: 1.6;
       }
 
       form {
@@ -344,7 +318,7 @@
     <main class="shell">
       <aside class="intro">
         <div class="intro-logo">
-          <img src="../images/byp-2026-logo-complete.jpeg" alt="Babel Youthpreneur 2026" />
+          <img src="../images/byp-2026-logo-complete.png" alt="Babel Youthpreneur 2026" />
         </div>
         <p class="eyebrow">Profiling dan Kurasi UMKM</p>
         <h1>Babel Youthpreneur 2026</h1>
@@ -352,10 +326,6 @@
           Form ini digunakan untuk memetakan profil, kesiapan usaha, kebutuhan pendampingan,
           akses pembiayaan, kanal pemasaran, dan kesiapan UMKM menerima mahasiswa selama program.
         </p>
-        <div class="status-card" id="backendStatus">
-          <strong>Status backend</strong>
-          <p>Memeriksa koneksi Google Sheet.</p>
-        </div>
       </aside>
 
       <form id="kurasiForm">
@@ -618,7 +588,7 @@
 
         <div class="actions">
           <button type="button" class="secondary" id="saveDraft">Simpan draft</button>
-          <button type="submit" id="submitButton">Kirim ke Google Sheet</button>
+          <button type="submit" id="submitButton">Submit</button>
         </div>
       </form>
     </main>

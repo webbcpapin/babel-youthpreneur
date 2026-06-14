@@ -2,7 +2,6 @@ const form = document.querySelector('#kurasiForm')
 const message = document.querySelector('#formMessage')
 const submitButton = document.querySelector('#submitButton')
 const saveDraftButton = document.querySelector('#saveDraft')
-const backendStatus = document.querySelector('#backendStatus')
 const draftKey = 'babel-youthpreneur-kurasi-draft'
 const config = window.KURASI_CONFIG || {}
 
@@ -22,9 +21,6 @@ function setMessage(text, type = 'info') {
 
 function updateBackendStatus() {
   const hasEndpoint = Boolean(config.appsScriptUrl && !config.appsScriptUrl.includes('PASTE_'))
-  backendStatus.innerHTML = hasEndpoint
-    ? '<strong>Status backend</strong><p>Endpoint Google Sheet sudah terpasang. Data akan dikirim ke spreadsheet tujuan saat formulir dikirim.</p>'
-    : '<strong>Status backend</strong><p>Form sudah siap, tetapi URL Apps Script belum diisi di <code>public/kurasi/config.js</code>. Deploy Apps Script backend, lalu isi URL Web App agar data tersimpan ke Google Sheet.</p>'
   submitButton.disabled = !hasEndpoint
 }
 
@@ -118,7 +114,7 @@ form.addEventListener('submit', async (event) => {
     localStorage.setItem(draftKey, JSON.stringify(payload))
   } finally {
     submitButton.disabled = false
-    submitButton.textContent = 'Kirim ke Google Sheet'
+    submitButton.textContent = 'Submit'
     updateBackendStatus()
   }
 })

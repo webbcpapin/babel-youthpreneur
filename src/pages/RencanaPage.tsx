@@ -90,8 +90,8 @@ export default function RencanaPage() {
       {/* Hero */}
       <section className="relative w-full flex items-center justify-center" style={{ minHeight: 500, paddingTop: 140 }}>
         <div className="text-center px-6 max-w-[900px] mx-auto">
-          <div className="mx-auto mb-8" style={{ width: 'min(520px, 86vw)', background: '#fff', padding: 14 }}>
-            <img src="./images/byp-2026-logo-complete.jpeg" alt="Babel Youthpreneur 2026" style={{ display: 'block', width: '100%', height: 'auto' }} />
+          <div className="mx-auto mb-8" style={{ width: 'min(520px, 86vw)', padding: 8 }}>
+            <img src="./images/byp-2026-logo-complete.png" alt="Babel Youthpreneur 2026" style={{ display: 'block', width: '100%', height: 'auto' }} />
           </div>
           <p className="font-body text-xs font-semibold uppercase tracking-[0.18em] mb-4" style={{ color: '#c9a87c' }}>
             MELANGKAH LEBIH JAUH
