@@ -20,11 +20,31 @@ export default function Hero() {
         style={{ pointerEvents: 'none' }}
       >
         <div className="text-center px-6" style={{ pointerEvents: 'auto' }}>
+          <div
+            className="mx-auto mb-7"
+            style={{
+              width: 'min(620px, 86vw)',
+              background: '#fff',
+              border: '1px solid rgba(255,255,255,0.16)',
+              padding: 'clamp(10px, 2vw, 18px)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.28)',
+            }}
+          >
+            <img
+              src="./images/byp-2026-logo-complete.jpeg"
+              alt="Babel Youthpreneur 2026"
+              style={{
+                display: 'block',
+                width: '100%',
+                height: 'auto',
+              }}
+            />
+          </div>
           <p
             className="font-body text-xs font-semibold uppercase tracking-[0.18em] mb-4"
             style={{ color: '#c9a87c' }}
           >
-            BABEL YOUTHPRENEUR 2025
+            BABEL YOUTHPRENEUR 2026
           </p>
 
           <h1
@@ -85,7 +105,7 @@ export default function Hero() {
                 padding: '10px 28px',
               }}
             >
-              12 NOVEMBER &mdash; 17 DESEMBER 2025
+              PROGRAM 2026
             </span>
           </div>
         </div>

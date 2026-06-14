@@ -47,10 +47,25 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-full px-6 md:px-12 max-w-[1400px] mx-auto">
           <button
             onClick={() => handleNav('/')}
-            className="font-display text-lg tracking-normal"
+            className="flex items-center gap-3 font-display text-lg tracking-normal"
             style={{ color: '#f5f2ed' }}
           >
-            Babel Youthpreneur
+            <span
+              className="flex items-center justify-center overflow-hidden"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: '#fff',
+              }}
+            >
+              <img
+                src="./images/byp-2026-logo-icon.png"
+                alt=""
+                style={{ width: 34, height: 34, objectFit: 'contain' }}
+              />
+            </span>
+            <span>Babel Youthpreneur</span>
           </button>
 
           {/* Desktop links */}

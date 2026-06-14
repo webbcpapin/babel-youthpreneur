@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Profiling dan Kurasi UMKM | Babel Youthpreneur 2026</title>
+    <link rel="icon" type="image/png" href="../images/byp-2026-logo-icon.png" />
+    <link rel="apple-touch-icon" href="../images/byp-2026-logo-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -46,8 +48,22 @@
       }
 
       .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
         font-family: "Instrument Serif", serif;
         font-size: 22px;
+        text-decoration: none;
+      }
+
+      .brand img {
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 3px;
       }
 
       .nav {
@@ -78,6 +94,20 @@
         position: sticky;
         top: 86px;
         align-self: start;
+      }
+
+      .intro-logo {
+        width: min(100%, 280px);
+        margin-bottom: 24px;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid var(--line);
+      }
+
+      .intro-logo img {
+        display: block;
+        width: 100%;
+        height: auto;
       }
 
       .eyebrow {
@@ -300,7 +330,10 @@
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="../">Babel Youthpreneur</a>
+      <a class="brand" href="../">
+        <img src="../images/byp-2026-logo-icon.png" alt="" />
+        <span>Babel Youthpreneur</span>
+      </a>
       <nav class="nav">
         <a href="../">Beranda</a>
         <a href="../monitoring/">Monitoring</a>
@@ -310,6 +343,9 @@
 
     <main class="shell">
       <aside class="intro">
+        <div class="intro-logo">
+          <img src="../images/byp-2026-logo-complete.jpeg" alt="Babel Youthpreneur 2026" />
+        </div>
         <p class="eyebrow">Profiling dan Kurasi UMKM</p>
         <h1>Babel Youthpreneur 2026</h1>
         <p class="lead">

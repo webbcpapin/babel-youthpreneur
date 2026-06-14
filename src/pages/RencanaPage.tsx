@@ -90,6 +90,9 @@ export default function RencanaPage() {
       {/* Hero */}
       <section className="relative w-full flex items-center justify-center" style={{ minHeight: 500, paddingTop: 140 }}>
         <div className="text-center px-6 max-w-[900px] mx-auto">
+          <div className="mx-auto mb-8" style={{ width: 'min(520px, 86vw)', background: '#fff', padding: 14 }}>
+            <img src="./images/byp-2026-logo-complete.jpeg" alt="Babel Youthpreneur 2026" style={{ display: 'block', width: '100%', height: 'auto' }} />
+          </div>
           <p className="font-body text-xs font-semibold uppercase tracking-[0.18em] mb-4" style={{ color: '#c9a87c' }}>
             MELANGKAH LEBIH JAUH
           </p>
@@ -103,6 +106,29 @@ export default function RencanaPage() {
             Dari model "event kompetisi" menjadi "program pendampingan berbasis course dan implementasi"
             yang lebih panjang, terukur, dan berbasis kebutuhan nyata UMKM.
           </p>
+        </div>
+      </section>
+
+      {/* Identitas Visual */}
+      <section className="w-full" style={{ background: '#f7f4ef', padding: 'clamp(48px, 8vw, 96px) 0' }}>
+        <div className="max-w-[1200px] mx-auto px-6 md:px-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] gap-10 lg:gap-14 items-center">
+            <div>
+              <p className="font-body text-xs font-semibold uppercase tracking-[0.18em] mb-4" style={{ color: '#0d3866' }}>
+                IDENTITAS VISUAL 2026
+              </p>
+              <h2 className="font-display font-normal tracking-[-0.02em] mb-5" style={{ color: '#0d0b0a', fontSize: 'clamp(32px, 4vw, 54px)', lineHeight: 1.08 }}>
+                Logo resmi untuk seluruh kanal program
+              </h2>
+              <p className="font-body font-light" style={{ color: 'rgba(13,11,10,0.65)', fontSize: 17, lineHeight: 1.75 }}>
+                Identitas Babel Youthpreneur 2026 digunakan konsisten pada website, dashboard, formulir,
+                publikasi kegiatan, dan materi pendukung program.
+              </p>
+            </div>
+            <div style={{ background: '#fff', padding: 'clamp(10px, 2vw, 18px)', border: '1px solid rgba(13,11,10,0.08)' }}>
+              <img src="./images/byp-2026-brand-application.jpg" alt="Contoh pengaplikasian logo Babel Youthpreneur 2026 pada merchandise" style={{ display: 'block', width: '100%', height: 'auto' }} />
+            </div>
+          </div>
         </div>
       </section>
 

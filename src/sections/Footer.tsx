@@ -12,12 +12,21 @@
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 md:gap-8">
           {/* Column 1 */}
           <div>
-            <p
-              className="font-display text-lg"
-              style={{ color: '#f5f2ed' }}
+            <div
+              style={{
+                width: 240,
+                maxWidth: '100%',
+                background: '#fff',
+                padding: 10,
+                marginBottom: 18,
+              }}
             >
-              Babel Youthpreneur
-            </p>
+              <img
+                src="./images/byp-2026-logo-complete.jpeg"
+                alt="Babel Youthpreneur 2026"
+                style={{ display: 'block', width: '100%', height: 'auto' }}
+              />
+            </div>
             <p
               className="font-body font-light mt-4 leading-relaxed"
               style={{ color: 'rgba(245,242,237,0.45)', fontSize: 13, lineHeight: 1.7 }}
@@ -74,7 +83,7 @@
                 className="font-body"
                 style={{ color: 'rgba(245,242,237,0.6)', fontSize: 14 }}
               >
-                Babel Youthpreneur 2025
+                Babel Youthpreneur 2026
               </span>
             </div>
           </div>
@@ -89,7 +98,7 @@
             className="font-body"
             style={{ color: 'rgba(245,242,237,0.45)', fontSize: 13 }}
           >
-            &copy; 2025 Kementerian Keuangan Republik Indonesia
+            &copy; 2026 Kementerian Keuangan Republik Indonesia
           </p>
           <p
             className="font-body"
