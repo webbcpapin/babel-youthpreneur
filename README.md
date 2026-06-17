@@ -23,6 +23,50 @@ Aktivasi backend:
 
 Data akan masuk ke sheet bernama `Kurasi UMKM 2026`.
 
+## Backend Google untuk Monitoring
+
+Monitoring `/monitoring` dapat berjalan dengan Google Sheet, Google Drive, dan Google Apps Script.
+
+File backend:
+
+`apps-script/monitoring-backend.gs`
+
+Aktivasi backend monitoring:
+
+1. Buka Google Sheet tujuan:
+   `https://docs.google.com/spreadsheets/d/1PqRraw7Qt5nfpWECAemnTRH4edrKDZfti0gBImmgDbI/`
+2. Pilih Extensions -> Apps Script.
+3. Ganti atau satukan kode Apps Script lama dengan isi `apps-script/monitoring-backend.gs`.
+   Jangan memasang dua fungsi `doGet()` / `doPost()` terpisah dalam project yang sama.
+4. Jalankan fungsi `bootstrap_` sekali dari editor Apps Script untuk membuat tab database dan folder Drive.
+   Saat pertama kali dijalankan, Google akan meminta otorisasi Spreadsheet dan Drive. Izinkan akses tersebut agar upload foto/export file bisa berjalan.
+5. Deploy -> New deployment -> Web app.
+6. Set `Execute as: Me` dan `Who has access: Anyone with the link` untuk MVP internal.
+7. Salin Web App URL.
+8. Isi URL tersebut ke `public/monitoring/config.js` pada `appsScriptUrl`.
+
+Endpoint utama:
+
+- `?action=test`
+- `?action=bootstrap`
+- `?action=getData`
+- `?action=loginByEmail&email=...`
+- POST `?action=submitWeeklyReport`
+- POST `?action=submitOutput`
+- POST `?action=submitScore`
+- POST `?action=submitAttendance`
+- `?action=exportCsv&sheet=Teams`
+
+Google Sheet dipakai sebagai database, Google Drive sebagai storage file presensi/output/export, dan Apps Script sebagai API backend.
+Jika endpoint `getData` sudah berjalan tetapi export/upload Drive gagal, buka editor Apps Script dan jalankan `bootstrap_` manual untuk memicu izin Drive.
+
+Catatan integrasi kurasi:
+
+- Sheet yang sama aman dipakai.
+- Tab `Kurasi UMKM 2026` tetap dipertahankan untuk form kurasi lama.
+- POST tanpa `action` tetap diproses sebagai submit kurasi, sehingga `public/kurasi/kurasi.js` lama tetap kompatibel.
+- Monitoring memakai endpoint dengan parameter `action`, misalnya `?action=getData`.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
