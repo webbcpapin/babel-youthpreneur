@@ -5,6 +5,36 @@ Website publik Babel Youthpreneur dengan tambahan:
 - `/monitoring/` untuk Babel Youthpreneur Monitoring System.
 - `/kurasi/` untuk form Profiling dan Kurasi UMKM Babel Youthpreneur 2026.
 
+## Backend Google Sheet untuk Monitoring System
+
+Monitoring `/monitoring/` sekarang mendukung backend ringan Google Sheet + Apps Script. Supabase tetap bisa dipakai nanti, tetapi jalur operasional cepat yang disiapkan adalah Google Sheet.
+
+Aktivasi backend monitoring:
+
+1. Buat Google Sheet baru khusus monitoring.
+2. Buat tab sesuai nama berikut, atau biarkan script membuat otomatis saat pertama kali jalan:
+   `users`, `campuses`, `umkms`, `teams`, `courses`, `sessions`, `attendance`, `weekly_reports`, `outputs`, `scores`, `audit_logs`.
+3. Pilih Extensions -> Apps Script.
+4. Salin isi `apps-script/monitoring-backend.gs` ke editor Apps Script.
+5. Jika script tidak dibuat dari Sheet aktif, isi `MONITORING_SPREADSHEET_ID` dengan ID Google Sheet monitoring.
+6. Deploy sebagai Web App:
+   - Execute as: Me
+   - Who has access: Anyone
+7. Salin URL Web App.
+8. Isi URL tersebut ke `public/monitoring/monitoring-config.js`:
+
+```js
+window.MONITORING_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/DEPLOYMENT_ID/exec';
+```
+
+Sheet `users` menjadi kunci akses role. Kolom minimal:
+
+```text
+id, name, email, role, campus_id, umkm_id, team_id, status
+```
+
+Nilai `role` yang dipakai: `admin`, `dosen`, `mahasiswa`, `umkm`, `juri`. Jika backend monitoring belum dipasang, aplikasi tetap berjalan sebagai staging/demo tanpa menyimpan data permanen.
+
 ## Backend Google Sheet untuk Form Kurasi
 
 Form `/kurasi/` disiapkan untuk menulis data ke Google Sheet:
