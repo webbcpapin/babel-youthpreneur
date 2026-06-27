@@ -1,1 +1,0 @@
-window.MONITORING_APPS_SCRIPT_URL = '';

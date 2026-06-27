@@ -3,14 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f3d5e" />
-    <link rel="manifest" href="./assets/manifest-CGszd_0R.webmanifest" />
+    <meta name="theme-color" content="#0f766e" />
+    <link rel="icon" type="image/png" href="../images/byp-2026-logo-icon-transparent.png" />
     <title>Babel Youthpreneur Monitoring System</title>
-    <script type="module" crossorigin src="./assets/index-Df1-wL53.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BmOKZIdE.css">
+    <script>
+      const basePath = window.location.pathname.replace(/\/monitoring\/?$/, '/')
+      window.location.replace(`${window.location.origin}${basePath}#/monitoring`)
+    </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script src="./monitoring-config.js"></script>
+    <main style="font-family: system-ui, sans-serif; padding: 24px">
+      <h1>Babel Youthpreneur Monitoring System</h1>
+      <p>Memindahkan ke aplikasi monitoring terbaru...</p>
+      <p><a href="../#/monitoring">Buka Monitoring</a></p>
+    </main>
   </body>
 </html>

@@ -5,36 +5,6 @@ Website publik Babel Youthpreneur dengan tambahan:
 - `/monitoring/` untuk Babel Youthpreneur Monitoring System.
 - `/kurasi/` untuk form Profiling dan Kurasi UMKM Babel Youthpreneur 2026.
 
-## Backend Google Sheet untuk Monitoring System
-
-Monitoring `/monitoring/` sekarang mendukung backend ringan Google Sheet + Apps Script. Supabase tetap bisa dipakai nanti, tetapi jalur operasional cepat yang disiapkan adalah Google Sheet.
-
-Aktivasi backend monitoring:
-
-1. Buat Google Sheet baru khusus monitoring.
-2. Buat tab sesuai nama berikut, atau biarkan script membuat otomatis saat pertama kali jalan:
-   `users`, `campuses`, `umkms`, `teams`, `courses`, `sessions`, `attendance`, `weekly_reports`, `outputs`, `scores`, `audit_logs`.
-3. Pilih Extensions -> Apps Script.
-4. Salin isi `apps-script/monitoring-backend.gs` ke editor Apps Script.
-5. Jika script tidak dibuat dari Sheet aktif, isi `MONITORING_SPREADSHEET_ID` dengan ID Google Sheet monitoring.
-6. Deploy sebagai Web App:
-   - Execute as: Me
-   - Who has access: Anyone
-7. Salin URL Web App.
-8. Isi URL tersebut ke `public/monitoring/monitoring-config.js`:
-
-```js
-window.MONITORING_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/DEPLOYMENT_ID/exec';
-```
-
-Sheet `users` menjadi kunci akses role. Kolom minimal:
-
-```text
-id, name, email, role, campus_id, umkm_id, team_id, status
-```
-
-Nilai `role` yang dipakai: `admin`, `dosen`, `mahasiswa`, `umkm`, `juri`. Jika backend monitoring belum dipasang, aplikasi tetap berjalan sebagai staging/demo tanpa menyimpan data permanen.
-
 ## Backend Google Sheet untuk Form Kurasi
 
 Form `/kurasi/` disiapkan untuk menulis data ke Google Sheet:
@@ -52,6 +22,50 @@ Aktivasi backend:
 7. Commit dan push ulang.
 
 Data akan masuk ke sheet bernama `Kurasi UMKM 2026`.
+
+## Backend Google untuk Monitoring
+
+Monitoring `/monitoring` dapat berjalan dengan Google Sheet, Google Drive, dan Google Apps Script.
+
+File backend:
+
+`apps-script/monitoring-backend.gs`
+
+Aktivasi backend monitoring:
+
+1. Buka Google Sheet tujuan:
+   `https://docs.google.com/spreadsheets/d/1PqRraw7Qt5nfpWECAemnTRH4edrKDZfti0gBImmgDbI/`
+2. Pilih Extensions -> Apps Script.
+3. Ganti atau satukan kode Apps Script lama dengan isi `apps-script/monitoring-backend.gs`.
+   Jangan memasang dua fungsi `doGet()` / `doPost()` terpisah dalam project yang sama.
+4. Jalankan fungsi `bootstrap_` sekali dari editor Apps Script untuk membuat tab database dan folder Drive.
+   Saat pertama kali dijalankan, Google akan meminta otorisasi Spreadsheet dan Drive. Izinkan akses tersebut agar upload foto/export file bisa berjalan.
+5. Deploy -> New deployment -> Web app.
+6. Set `Execute as: Me` dan `Who has access: Anyone with the link` untuk MVP internal.
+7. Salin Web App URL.
+8. Isi URL tersebut ke `public/monitoring/config.js` pada `appsScriptUrl`.
+
+Endpoint utama:
+
+- `?action=test`
+- `?action=bootstrap`
+- `?action=getData`
+- `?action=loginByEmail&email=...`
+- POST `?action=submitWeeklyReport`
+- POST `?action=submitOutput`
+- POST `?action=submitScore`
+- POST `?action=submitAttendance`
+- `?action=exportCsv&sheet=Teams`
+
+Google Sheet dipakai sebagai database, Google Drive sebagai storage file presensi/output/export, dan Apps Script sebagai API backend.
+Jika endpoint `getData` sudah berjalan tetapi export/upload Drive gagal, buka editor Apps Script dan jalankan `bootstrap_` manual untuk memicu izin Drive.
+
+Catatan integrasi kurasi:
+
+- Sheet yang sama aman dipakai.
+- Tab `Kurasi UMKM 2026` tetap dipertahankan untuk form kurasi lama.
+- POST tanpa `action` tetap diproses sebagai submit kurasi, sehingga `public/kurasi/kurasi.js` lama tetap kompatibel.
+- Monitoring memakai endpoint dengan parameter `action`, misalnya `?action=getData`.
 
 # React + TypeScript + Vite
 
