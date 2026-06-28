@@ -1,8 +1,8 @@
 const MONITORING_SPREADSHEET_ID = '1PqRraw7Qt5nfpWECAemnTRH4edrKDZfti0gBImmgDbI';
 const MONITORING_ROOT_FOLDER_NAME = 'Babel Youthpreneur Monitoring';
 const KURASI_SHEET_NAME = 'Kurasi UMKM 2026';
-const SUPABASE_URL = '';
-const SUPABASE_ANON_KEY = '';
+const SUPABASE_URL = 'https://ilvutqcznkdvtwlcvqzt.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_D_xpMW0HYRdoirAjF0s1Xw_g9EcseXA';
 
 const SHEETS = {
   appUsers: 'AppUsers',
