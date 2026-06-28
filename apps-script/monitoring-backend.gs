@@ -15,6 +15,7 @@ const SHEETS = {
   weeklyReports: 'WeeklyReports',
   outputs: 'Outputs',
   challengeScores: 'ChallengeScores',
+  registrations: 'Registrations',
   notifications: 'Notifications',
   auditLogs: 'AuditLogs',
 };
@@ -32,6 +33,7 @@ const SCHEMAS = {
   [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at'],
   [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at'],
   [SHEETS.challengeScores]: ['id', 'team_id', 'category', 'score', 'note', 'judge_email', 'submitted_at'],
+  [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'status', 'admin_note', 'submitted_at'],
   [SHEETS.notifications]: ['id', 'user_email', 'title', 'message', 'is_read', 'created_at'],
   [SHEETS.auditLogs]: ['id', 'actor_email', 'action', 'entity_type', 'entity_id', 'metadata', 'created_at'],
 };
@@ -73,6 +75,7 @@ function handleRequest_(e, method) {
     if (action === 'bootstrap') return json_(bootstrap_());
     if (action === 'getData') return json_(getData_(payload));
     if (action === 'loginByEmail') return json_(loginByEmail_(payload));
+    if (action === 'registerAccount') return json_(registerAccount_(payload));
     if (action === 'submitWeeklyReport') return json_(submitWeeklyReport_(payload));
     if (action === 'submitOutput') return json_(submitOutput_(payload));
     if (action === 'submitScore') return json_(submitScore_(payload));
@@ -180,7 +183,13 @@ function loginByEmail_(payload) {
 
   const users = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.appUsers));
   const user = users.find((item) => String(item.email || '').toLowerCase() === email);
-  if (!user) return { ok: false, error: 'Email belum terdaftar di AppUsers.' };
+  if (!user) return { ok: false, error: 'Email belum terdaftar. Silakan register terlebih dahulu.' };
+  if (String(user.status || '').toLowerCase() !== 'active') {
+    return { ok: false, pending: true, error: 'Akun sudah terdaftar dan menunggu konfirmasi admin.' };
+  }
+  if (!['admin', 'dosen', 'mahasiswa', 'umkm', 'juri'].includes(String(user.role || '').toLowerCase())) {
+    return { ok: false, pending: true, error: 'Akun belum memiliki role. Admin perlu menetapkan role terlebih dahulu.' };
+  }
 
   return {
     ok: true,
@@ -193,6 +202,62 @@ function loginByEmail_(payload) {
       campusId: user.campus_id,
       umkmId: user.umkm_id,
     },
+  };
+}
+
+function registerAccount_(payload) {
+  bootstrap_();
+  const email = String(payload.email || '').trim().toLowerCase();
+  const name = String(payload.name || '').trim();
+  const requestedRole = String(payload.requested_role || '').trim().toLowerCase();
+  const institution = String(payload.institution || '').trim();
+  const whatsapp = String(payload.whatsapp || '').trim();
+  const note = String(payload.note || '').trim();
+
+  if (!email || email.indexOf('@') === -1) return { ok: false, error: 'Email Google wajib diisi dengan format yang benar.' };
+  if (!name) return { ok: false, error: 'Nama lengkap wajib diisi.' };
+
+  const ss = getSpreadsheet_();
+  const users = readObjects_(ss.getSheetByName(SHEETS.appUsers));
+  const existingUser = users.find((item) => String(item.email || '').toLowerCase() === email);
+  if (existingUser && String(existingUser.status || '').toLowerCase() === 'active') {
+    return { ok: true, status: 'active', message: 'Akun sudah aktif. Silakan masuk menggunakan email tersebut.' };
+  }
+
+  const row = {
+    id: makeId_('reg'),
+    email: email,
+    name: name,
+    requested_role: requestedRole,
+    institution: institution,
+    whatsapp: whatsapp,
+    note: note,
+    status: 'pending_admin_review',
+    admin_note: '',
+    submitted_at: now_(),
+  };
+  appendObject_(SHEETS.registrations, row);
+
+  if (!existingUser) {
+    appendObject_(SHEETS.appUsers, {
+      id: makeId_('user'),
+      email: email,
+      name: name,
+      role: '',
+      campus_id: '',
+      team_id: '',
+      umkm_id: '',
+      status: 'pending',
+      created_at: now_(),
+    });
+  }
+
+  audit_(email, 'registerAccount', 'registration', row.id, row);
+  return {
+    ok: true,
+    status: 'pending_admin_review',
+    message: 'Registrasi diterima. Admin akan mengonfirmasi akun dan menetapkan role.',
+    row: row,
   };
 }
 

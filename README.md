@@ -51,6 +51,7 @@ Endpoint utama:
 - `?action=bootstrap`
 - `?action=getData`
 - `?action=loginByEmail&email=...`
+- POST `?action=registerAccount`
 - POST `?action=submitWeeklyReport`
 - POST `?action=submitOutput`
 - POST `?action=submitScore`
@@ -59,6 +60,14 @@ Endpoint utama:
 
 Google Sheet dipakai sebagai database, Google Drive sebagai storage file presensi/output/export, dan Apps Script sebagai API backend.
 Jika endpoint `getData` sudah berjalan tetapi export/upload Drive gagal, buka editor Apps Script dan jalankan `bootstrap_` manual untuk memicu izin Drive.
+
+Alur register akun:
+
+1. Pengguna mengisi form register dengan email Google di halaman Monitoring.
+2. Data masuk ke tab `Registrations` dengan status `pending_admin_review`.
+3. Script juga membuat kandidat akun di tab `AppUsers` dengan status `pending`.
+4. Admin mengisi `role`, `campus_id`, `team_id`, atau `umkm_id` sesuai kebutuhan, lalu mengubah `status` menjadi `active`.
+5. Setelah aktif, pengguna bisa masuk dari tombol `Cek Status / Masuk` memakai email Google yang sama.
 
 Catatan integrasi kurasi:
 

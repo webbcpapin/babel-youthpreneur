@@ -82,6 +82,69 @@
   margin-top: 18px;
 }
 
+.register-card,
+.login-check-card,
+.demo-login-panel {
+  width: min(100%, 760px);
+  margin-top: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #18202f;
+  padding: 14px;
+}
+
+.register-card {
+  display: grid;
+  gap: 12px;
+}
+
+.login-check-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.register-card label,
+.login-check-card label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-weight: 800;
+}
+
+.register-card input,
+.register-card select,
+.login-check-card input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #d6deea;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.form-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.login-message {
+  width: fit-content;
+  max-width: min(100%, 760px);
+  margin-top: 12px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #065f46;
+  padding: 10px 12px;
+  font-weight: 800;
+}
+
+.demo-login-panel summary {
+  cursor: pointer;
+  font-weight: 900;
+}
+
 .demo-badge,
 .role-pill,
 .status-pill {
@@ -665,6 +728,8 @@
   .monitoring-topbar,
   .hero-strip,
   .stepper-grid,
+  .form-grid.two,
+  .login-check-card,
   .learning-grid,
   .metric-grid,
   .output-board,

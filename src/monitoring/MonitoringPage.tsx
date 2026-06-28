@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import {
   Bell,
   BookOpen,
@@ -366,6 +366,10 @@ function statusLabel(value: string) {
   return value.replace(/_/g, ' ')
 }
 
+function roleTitle(role: Role) {
+  return profiles[role]?.title ?? 'Peserta'
+}
+
 function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
   const headers = Object.keys(rows[0] ?? { status: 'Tidak ada data' })
   const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`
@@ -474,8 +478,24 @@ function MonitoringPage() {
     return base.filter((team) => `${team.name} ${team.campus} ${team.umkm} ${team.members.join(' ')}`.toLowerCase().includes(cleanQuery))
   }, [data.teams, profile, query])
 
+  async function loginWithEmail(email: string) {
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail) throw new Error('Email Google wajib diisi.')
+    const result = await postGoogleAction('loginByEmail', { email: cleanEmail })
+    if (!result?.profile) throw new Error(result?.error || 'Akun belum aktif.')
+    const nextProfile = result.profile
+    setProfile({
+      role: nextProfile.role as Role,
+      name: nextProfile.name || cleanEmail,
+      title: nextProfile.title || roleTitle(nextProfile.role as Role),
+    })
+    if (hasGoogleBackend()) {
+      setData(await fetchGoogleData(cleanEmail))
+    }
+  }
+
   if (!profile) {
-    return <LoginScreen onSelect={(role) => setProfile(profiles[role])} />
+    return <LoginScreen onSelect={(role) => setProfile(profiles[role])} onLogin={loginWithEmail} />
   }
 
   return (
@@ -549,7 +569,56 @@ function MonitoringPage() {
   )
 }
 
-function LoginScreen({ onSelect }: { onSelect: (role: Role) => void }) {
+function LoginScreen({ onSelect, onLogin }: { onSelect: (role: Role) => void; onLogin: (email: string) => Promise<void> }) {
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [requestedRole, setRequestedRole] = useState<Role>('mahasiswa')
+  const [institution, setInstitution] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
+  const [note, setNote] = useState('')
+  const [loginEmail, setLoginEmail] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submitRegistration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await postGoogleAction('registerAccount', {
+        email,
+        name,
+        requested_role: requestedRole,
+        institution,
+        whatsapp,
+        note,
+      })
+      setMessage(result?.message || 'Registrasi diterima. Admin akan mengonfirmasi akun dan menetapkan role.')
+      setLoginEmail(email)
+      setName('')
+      setInstitution('')
+      setWhatsapp('')
+      setNote('')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Registrasi belum berhasil dikirim.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy(true)
+    setMessage('')
+    try {
+      await onLogin(loginEmail)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Akun belum aktif atau belum diberi role oleh admin.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <main
       className="monitoring-login"
@@ -562,21 +631,44 @@ function LoginScreen({ onSelect }: { onSelect: (role: Role) => void }) {
         <p className="eyebrow">Babel Youthpreneur 2026</p>
         <h1>Learning and Monitoring Platform</h1>
         <p>
-          Media pembelajaran, presensi QR, laporan mingguan, output pendampingan, feedback UMKM, scoring juri, dan laporan eksekutif untuk semua pihak yang terlibat.
+          Register akun Google terlebih dahulu. Setelah admin mengonfirmasi dan menetapkan role, akun dapat masuk ke dashboard sesuai aksesnya.
         </p>
-        <div className="login-actions">
-          <button className="monitoring-button primary">
-            <ShieldCheck size={16} /> Masuk dengan Google
+        <form className="register-card" onSubmit={submitRegistration}>
+          <div className="form-grid two">
+            <label>Nama lengkap <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nama sesuai akun Google" /></label>
+            <label>Email Google <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@gmail.com" /></label>
+            <label>Daftar sebagai <select value={requestedRole} onChange={(event) => setRequestedRole(event.target.value as Role)}>
+              <option value="mahasiswa">Mahasiswa</option>
+              <option value="dosen">Dosen</option>
+              <option value="umkm">UMKM</option>
+              <option value="juri">Juri</option>
+              <option value="admin">Panitia</option>
+            </select></label>
+            <label>Kampus/UMKM/Instansi <input value={institution} onChange={(event) => setInstitution(event.target.value)} placeholder="Contoh: UBB / DND Cake" /></label>
+            <label>WhatsApp <input value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} placeholder="08..." /></label>
+            <label>Catatan <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Tim, UMKM, atau kebutuhan akses" /></label>
+          </div>
+          <button className="monitoring-button primary" disabled={busy}>
+            <ShieldCheck size={16} /> Register Akun Google
           </button>
-          <span className="demo-badge">Mode lokal aktif sampai URL Apps Script diisi</span>
-        </div>
-        <div className="role-grid">
-          {Object.values(profiles).map((profile) => (
-            <button className="monitoring-button" key={profile.role} onClick={() => onSelect(profile.role)}>
-              {profile.title}
-            </button>
-          ))}
-        </div>
+        </form>
+        <form className="login-check-card" onSubmit={submitLogin}>
+          <label>Email yang sudah dikonfirmasi admin <input type="email" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} placeholder="nama@gmail.com" /></label>
+          <button className="monitoring-button" disabled={busy}>Cek Status / Masuk</button>
+        </form>
+        {message && <div className="login-message">{message}</div>}
+        {!hasGoogleBackend() && (
+          <details className="demo-login-panel">
+            <summary>Mode demo lokal</summary>
+            <div className="role-grid">
+              {Object.values(profiles).map((profile) => (
+                <button className="monitoring-button" key={profile.role} onClick={() => onSelect(profile.role)}>
+                  {profile.title}
+                </button>
+              ))}
+            </div>
+          </details>
+        )}
       </section>
       <section className="login-health" aria-label="Program health">
         <div className="health-tile">
