@@ -398,9 +398,7 @@ async function fetchGoogleData(email?: string): Promise<MonitoringData> {
   const url = new URL(config.appsScriptUrl)
   url.searchParams.set('action', 'getData')
   if (email) url.searchParams.set('email', email)
-  const response = await fetch(url.toString())
-  if (!response.ok) throw new Error(`Google backend error ${response.status}`)
-  const payload = await response.json()
+  const payload = await requestGoogleJson(url.toString())
   if (!payload.ok) throw new Error(payload.error || 'Google backend belum siap.')
   return {
     teams: payload.teams ?? localData.teams,
@@ -415,14 +413,28 @@ async function postGoogleAction(action: string, payload: Record<string, string |
   if (!config.appsScriptUrl) return null
   const url = new URL(config.appsScriptUrl)
   url.searchParams.set('action', action)
-  const response = await fetch(url.toString(), {
+  const result = await requestGoogleJson(url.toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload),
   })
-  const result = await response.json()
   if (!result.ok) throw new Error(result.error || 'Google backend belum menerima data.')
   return result
+}
+
+async function requestGoogleJson(url: string, init?: RequestInit) {
+  try {
+    const response = await fetch(url, init)
+    if (!response.ok) throw new Error(`Google backend error ${response.status}`)
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      throw new Error('Backend Google Apps Script belum siap. Pastikan Code.gs sudah memakai script lengkap terbaru, lalu deploy versi baru.')
+    }
+    return await response.json()
+  } catch (error) {
+    if (error instanceof Error && error.message !== 'Failed to fetch') throw error
+    throw new Error('Backend Google Apps Script belum bisa dihubungi. Pastikan deployment Web App memakai akses Anyone dan code lengkap terbaru sudah dideploy.')
+  }
 }
 
 function getScopedTeams(profile: Profile, sourceTeams: Team[]) {
