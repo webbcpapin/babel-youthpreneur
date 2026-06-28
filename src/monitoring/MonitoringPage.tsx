@@ -586,7 +586,7 @@ function MonitoringPage() {
     setAuthMessage('')
     const supabase = getSupabaseClient()
     if (!supabase) throw new Error('Konfigurasi Supabase belum tersedia. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.')
-    const redirectTo = `${window.location.origin}${window.location.pathname}`
+    const redirectTo = `${window.location.origin}/`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },

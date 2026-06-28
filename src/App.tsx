@@ -6,6 +6,11 @@ import DokumentasiPage from './pages/DokumentasiPage'
 import MonitoringPage from './monitoring/MonitoringPage'
 
 export default function App() {
+  const hash = window.location.hash
+  const isSupabaseOAuthCallback = hash.includes('access_token=') || hash.includes('error_code=')
+
+  if (isSupabaseOAuthCallback) return <MonitoringPage />
+
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
