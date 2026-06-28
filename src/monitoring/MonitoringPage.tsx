@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
+import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 import {
   Bell,
   BookOpen,
@@ -25,6 +26,7 @@ type Profile = {
   role: Role
   name: string
   title: string
+  email?: string
 }
 
 type Team = {
@@ -96,6 +98,8 @@ type BackendStatus = {
 type MonitoringConfig = {
   sheetId?: string
   appsScriptUrl?: string
+  supabaseUrl?: string
+  supabaseAnonKey?: string
 }
 
 declare global {
@@ -387,18 +391,48 @@ function getMonitoringConfig() {
   return window.MONITORING_CONFIG ?? {}
 }
 
+let supabaseClient: SupabaseClient | null | undefined
+
+function getSupabaseConfig() {
+  const config = getMonitoringConfig()
+  return {
+    url: config.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || '',
+    anonKey: config.supabaseAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+  }
+}
+
+function getSupabaseClient() {
+  if (supabaseClient !== undefined) return supabaseClient
+  const config = getSupabaseConfig()
+  if (!config.url || !config.anonKey) {
+    supabaseClient = null
+    return supabaseClient
+  }
+  supabaseClient = createClient(config.url, config.anonKey, {
+    auth: {
+      detectSessionInUrl: true,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  })
+  return supabaseClient
+}
+
+function hasSupabaseAuth() {
+  return Boolean(getSupabaseClient())
+}
+
 function hasGoogleBackend() {
   const config = getMonitoringConfig()
   return Boolean(config.appsScriptUrl && /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(config.appsScriptUrl))
 }
 
-async function fetchGoogleData(email?: string): Promise<MonitoringData> {
+async function fetchGoogleData(email?: string, accessToken?: string): Promise<MonitoringData> {
   const config = getMonitoringConfig()
   if (!config.appsScriptUrl) throw new Error('URL Apps Script belum diisi.')
-  const url = new URL(config.appsScriptUrl)
-  url.searchParams.set('action', 'getData')
-  if (email) url.searchParams.set('email', email)
-  const payload = await requestGoogleJson(url.toString())
+  const payload = accessToken
+    ? await postGoogleAction('getData', { email, access_token: accessToken })
+    : await getGoogleAction('getData', email ? { email } : undefined)
   if (!payload.ok) throw new Error(payload.error || 'Google backend belum siap.')
   return {
     teams: payload.teams ?? localData.teams,
@@ -408,7 +442,18 @@ async function fetchGoogleData(email?: string): Promise<MonitoringData> {
   }
 }
 
-async function postGoogleAction(action: string, payload: Record<string, string | number>) {
+async function getGoogleAction(action: string, payload?: Record<string, string | number | undefined>) {
+  const config = getMonitoringConfig()
+  if (!config.appsScriptUrl) return { ok: false, error: 'URL Apps Script belum diisi.' }
+  const url = new URL(config.appsScriptUrl)
+  url.searchParams.set('action', action)
+  Object.entries(payload ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') url.searchParams.set(key, String(value))
+  })
+  return requestGoogleJson(url.toString())
+}
+
+async function postGoogleAction(action: string, payload: Record<string, string | number | undefined>) {
   const config = getMonitoringConfig()
   if (!config.appsScriptUrl) return null
   const url = new URL(config.appsScriptUrl)
@@ -449,6 +494,7 @@ function MonitoringPage() {
   const [view, setView] = useState<View>('dashboard')
   const [query, setQuery] = useState('')
   const [data, setData] = useState<MonitoringData>(localData)
+  const [authMessage, setAuthMessage] = useState('')
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(() => ({
     mode: hasGoogleBackend() ? 'google' : 'local',
     message: hasGoogleBackend() ? 'Menghubungkan ke Google Sheet...' : 'Mode lokal aktif. Isi URL Apps Script untuk memakai Google Sheet/Drive.',
@@ -459,10 +505,9 @@ function MonitoringPage() {
     let cancelled = false
     if (!hasGoogleBackend()) return
 
-    fetchGoogleData()
-      .then((nextData) => {
+    getGoogleAction('test')
+      .then(() => {
         if (cancelled) return
-        setData(nextData)
         setBackendStatus({
           mode: 'google',
           message: 'Google Sheet dan Drive tersambung.',
@@ -483,6 +528,36 @@ function MonitoringPage() {
     }
   }, [])
 
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    let cancelled = false
+
+    async function openSession(session: Session | null) {
+      if (!session?.user.email || cancelled) return
+      try {
+        await loginWithGoogleSession(session)
+      } catch (error) {
+        if (cancelled) return
+        setAuthMessage(error instanceof Error ? error.message : 'Akun Google belum aktif atau belum diberi role oleh admin.')
+      }
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => openSession(session))
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setProfile(null)
+        return
+      }
+      if (event === 'SIGNED_IN') openSession(session)
+    })
+
+    return () => {
+      cancelled = true
+      listener.subscription.unsubscribe()
+    }
+  }, [])
+
   const scopedTeams = useMemo(() => {
     const base = profile ? getScopedTeams(profile, data.teams) : data.teams
     const cleanQuery = query.toLowerCase().trim()
@@ -490,24 +565,43 @@ function MonitoringPage() {
     return base.filter((team) => `${team.name} ${team.campus} ${team.umkm} ${team.members.join(' ')}`.toLowerCase().includes(cleanQuery))
   }, [data.teams, profile, query])
 
-  async function loginWithEmail(email: string) {
-    const cleanEmail = email.trim().toLowerCase()
+  async function loginWithGoogleSession(session: Session) {
+    const cleanEmail = session.user.email?.trim().toLowerCase() || ''
     if (!cleanEmail) throw new Error('Email Google wajib diisi.')
-    const result = await postGoogleAction('loginByEmail', { email: cleanEmail })
+    const result = await postGoogleAction('loginByEmail', { email: cleanEmail, access_token: session.access_token })
     if (!result?.profile) throw new Error(result?.error || 'Akun belum aktif.')
     const nextProfile = result.profile
     setProfile({
       role: nextProfile.role as Role,
       name: nextProfile.name || cleanEmail,
       title: nextProfile.title || roleTitle(nextProfile.role as Role),
+      email: cleanEmail,
     })
     if (hasGoogleBackend()) {
-      setData(await fetchGoogleData(cleanEmail))
+      setData(await fetchGoogleData(cleanEmail, session.access_token))
     }
   }
 
+  async function signInWithGoogle() {
+    setAuthMessage('')
+    const supabase = getSupabaseClient()
+    if (!supabase) throw new Error('Konfigurasi Supabase belum tersedia. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.')
+    const redirectTo = `${window.location.origin}${window.location.pathname}`
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    })
+    if (error) throw error
+  }
+
+  async function signOut() {
+    const supabase = getSupabaseClient()
+    if (supabase) await supabase.auth.signOut()
+    setProfile(null)
+  }
+
   if (!profile) {
-    return <LoginScreen onSelect={(role) => setProfile(profiles[role])} onLogin={loginWithEmail} />
+    return <LoginScreen onSelect={(role) => setProfile(profiles[role])} onGoogleLogin={signInWithGoogle} authMessage={authMessage} />
   }
 
   return (
@@ -541,7 +635,7 @@ function MonitoringPage() {
               <small>{profile.title}</small>
             </div>
           </div>
-          <button className="monitoring-button" onClick={() => setProfile(null)}>
+          <button className="monitoring-button" onClick={signOut}>
             <LogOut size={16} /> Keluar
           </button>
         </aside>
@@ -581,14 +675,13 @@ function MonitoringPage() {
   )
 }
 
-function LoginScreen({ onSelect, onLogin }: { onSelect: (role: Role) => void; onLogin: (email: string) => Promise<void> }) {
+function LoginScreen({ onSelect, onGoogleLogin, authMessage }: { onSelect: (role: Role) => void; onGoogleLogin: () => Promise<void>; authMessage: string }) {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [requestedRole, setRequestedRole] = useState<Role>('mahasiswa')
   const [institution, setInstitution] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [note, setNote] = useState('')
-  const [loginEmail, setLoginEmail] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -606,7 +699,6 @@ function LoginScreen({ onSelect, onLogin }: { onSelect: (role: Role) => void; on
         note,
       })
       setMessage(result?.message || 'Registrasi diterima. Admin akan mengonfirmasi akun dan menetapkan role.')
-      setLoginEmail(email)
       setName('')
       setInstitution('')
       setWhatsapp('')
@@ -618,14 +710,13 @@ function LoginScreen({ onSelect, onLogin }: { onSelect: (role: Role) => void; on
     }
   }
 
-  async function submitLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function startGoogleLogin() {
     setBusy(true)
     setMessage('')
     try {
-      await onLogin(loginEmail)
+      await onGoogleLogin()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Akun belum aktif atau belum diberi role oleh admin.')
+      setMessage(error instanceof Error ? error.message : 'Login Google belum bisa dimulai.')
     } finally {
       setBusy(false)
     }
@@ -643,7 +734,7 @@ function LoginScreen({ onSelect, onLogin }: { onSelect: (role: Role) => void; on
         <p className="eyebrow">Babel Youthpreneur 2026</p>
         <h1>Learning and Monitoring Platform</h1>
         <p>
-          Register akun Google terlebih dahulu. Setelah admin mengonfirmasi dan menetapkan role, akun dapat masuk ke dashboard sesuai aksesnya.
+          Register akun Google terlebih dahulu. Setelah admin mengonfirmasi dan menetapkan role, masuk dilakukan langsung dengan akun Google asli.
         </p>
         <form className="register-card" onSubmit={submitRegistration}>
           <div className="form-grid two">
@@ -664,11 +755,17 @@ function LoginScreen({ onSelect, onLogin }: { onSelect: (role: Role) => void; on
             <ShieldCheck size={16} /> Register Akun Google
           </button>
         </form>
-        <form className="login-check-card" onSubmit={submitLogin}>
-          <label>Email yang sudah dikonfirmasi admin <input type="email" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} placeholder="nama@gmail.com" /></label>
-          <button className="monitoring-button" disabled={busy}>Cek Status / Masuk</button>
-        </form>
-        {message && <div className="login-message">{message}</div>}
+        <div className="login-check-card oauth-card">
+          <div>
+            <strong>Masuk dengan Google</strong>
+            <span>Email Google akan diverifikasi oleh Supabase, lalu dicocokkan dengan status aktif di Google Sheet.</span>
+          </div>
+          <button className="monitoring-button primary" disabled={busy || !hasSupabaseAuth()} onClick={startGoogleLogin}>
+            <ShieldCheck size={16} /> Masuk dengan Google
+          </button>
+        </div>
+        {!hasSupabaseAuth() && <div className="login-message warning">Supabase Auth belum dikonfigurasi. Isi URL dan anon key Supabase di Vercel.</div>}
+        {(message || authMessage) && <div className="login-message">{message || authMessage}</div>}
         {!hasGoogleBackend() && (
           <details className="demo-login-panel">
             <summary>Mode demo lokal</summary>

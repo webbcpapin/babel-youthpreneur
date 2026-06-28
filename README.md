@@ -61,13 +61,43 @@ Endpoint utama:
 Google Sheet dipakai sebagai database, Google Drive sebagai storage file presensi/output/export, dan Apps Script sebagai API backend.
 Jika endpoint `getData` sudah berjalan tetapi export/upload Drive gagal, buka editor Apps Script dan jalankan `bootstrap_` manual untuk memicu izin Drive.
 
-Alur register akun:
+## Login Google OAuth Supabase untuk Monitoring
+
+Monitoring memakai Supabase Auth untuk memastikan user benar-benar login dengan akun Google miliknya. Google Sheet tetap dipakai untuk review akun, role, status, dan data monitoring.
+
+Konfigurasi Supabase:
+
+1. Buat project Supabase.
+2. Authentication -> Providers -> aktifkan Google.
+3. Isi Client ID dan Client Secret dari Google Cloud OAuth.
+4. Authentication -> URL Configuration:
+   - Site URL: `https://babelyouthpreneur.vercel.app`
+   - Redirect URL: `https://babelyouthpreneur.vercel.app/monitoring/`
+5. Di Vercel, isi Environment Variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+6. Deploy ulang Vercel.
+
+Opsional pengamanan Apps Script:
+
+1. Buka `apps-script/monitoring-backend.gs`.
+2. Isi konstanta:
+   - `SUPABASE_URL`
+   - `SUPABASE_ANON_KEY`
+3. Deploy ulang Apps Script.
+
+Jika konstanta Supabase di Apps Script sudah diisi, endpoint `loginByEmail` dan `getData` akan menolak request yang tidak membawa access token Supabase yang valid.
+
+Alur register dan aktivasi akun:
 
 1. Pengguna mengisi form register dengan email Google di halaman Monitoring.
 2. Data masuk ke tab `Registrations` dengan status `pending_admin_review`.
 3. Script juga membuat kandidat akun di tab `AppUsers` dengan status `pending`.
 4. Admin mengisi `role`, `campus_id`, `team_id`, atau `umkm_id` sesuai kebutuhan, lalu mengubah `status` menjadi `active`.
-5. Setelah aktif, pengguna bisa masuk dari tombol `Cek Status / Masuk` memakai email Google yang sama.
+5. Setelah aktif, pengguna klik `Masuk dengan Google`.
+6. Supabase memverifikasi akun Google asli user.
+7. Apps Script mencocokkan email Google terverifikasi dengan `AppUsers`.
+8. Jika `status` adalah `active`, user masuk sesuai role.
 
 Catatan integrasi kurasi:
 

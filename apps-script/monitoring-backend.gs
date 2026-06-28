@@ -1,6 +1,8 @@
 const MONITORING_SPREADSHEET_ID = '1PqRraw7Qt5nfpWECAemnTRH4edrKDZfti0gBImmgDbI';
 const MONITORING_ROOT_FOLDER_NAME = 'Babel Youthpreneur Monitoring';
 const KURASI_SHEET_NAME = 'Kurasi UMKM 2026';
+const SUPABASE_URL = '';
+const SUPABASE_ANON_KEY = '';
 
 const SHEETS = {
   appUsers: 'AppUsers',
@@ -121,7 +123,14 @@ function bootstrap_() {
 function getData_(payload) {
   bootstrap_();
   const ss = getSpreadsheet_();
-  const profile = payload.email ? loginByEmail_(payload).profile : null;
+  if (requiresSupabaseAuth_()) {
+    const verifiedEmail = verifySupabaseEmail_(payload);
+    if (!verifiedEmail) return { ok: false, error: 'Data monitoring hanya tersedia setelah login Google OAuth.' };
+    payload.email = verifiedEmail;
+  }
+  const loginResult = payload.email ? loginByEmail_(payload) : null;
+  if (payload.email && (!loginResult || !loginResult.ok)) return loginResult;
+  const profile = loginResult ? loginResult.profile : null;
   const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses));
   const umkms = readObjects_(ss.getSheetByName(SHEETS.umkms));
   const teams = readObjects_(ss.getSheetByName(SHEETS.teams));
@@ -178,8 +187,16 @@ function getData_(payload) {
 
 function loginByEmail_(payload) {
   bootstrap_();
-  const email = String(payload.email || '').toLowerCase();
+  const verifiedEmail = verifySupabaseEmail_(payload);
+  const submittedEmail = String(payload.email || '').trim().toLowerCase();
+  const email = String(verifiedEmail || submittedEmail).toLowerCase();
   if (!email) return { ok: false, error: 'Email is required.' };
+  if (requiresSupabaseAuth_() && !verifiedEmail) {
+    return { ok: false, error: 'Login wajib melalui Google OAuth yang valid.' };
+  }
+  if (verifiedEmail && submittedEmail && verifiedEmail !== submittedEmail) {
+    return { ok: false, error: 'Email login tidak sesuai dengan akun Google yang terverifikasi.' };
+  }
 
   const users = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.appUsers));
   const user = users.find((item) => String(item.email || '').toLowerCase() === email);
@@ -203,6 +220,31 @@ function loginByEmail_(payload) {
       umkmId: user.umkm_id,
     },
   };
+}
+
+function requiresSupabaseAuth_() {
+  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+}
+
+function verifySupabaseEmail_(payload) {
+  if (!payload.access_token) return '';
+  if (!requiresSupabaseAuth_()) return '';
+
+  try {
+    const response = UrlFetchApp.fetch(SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user', {
+      method: 'get',
+      muteHttpExceptions: true,
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + payload.access_token,
+      },
+    });
+    if (response.getResponseCode() !== 200) return '';
+    const user = JSON.parse(response.getContentText() || '{}');
+    return String(user.email || '').trim().toLowerCase();
+  } catch (error) {
+    return '';
+  }
 }
 
 function registerAccount_(payload) {

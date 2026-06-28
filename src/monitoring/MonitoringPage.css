@@ -106,6 +106,21 @@
   align-items: end;
 }
 
+.oauth-card {
+  align-items: center;
+}
+
+.oauth-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.oauth-card span {
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .register-card label,
 .login-check-card label {
   display: grid;
@@ -138,6 +153,11 @@
   color: #065f46;
   padding: 10px 12px;
   font-weight: 800;
+}
+
+.login-message.warning {
+  background: #fffbeb;
+  color: #92400e;
 }
 
 .demo-login-panel summary {
