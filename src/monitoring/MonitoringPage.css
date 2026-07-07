@@ -10,6 +10,10 @@
 }
 
 .monitoring-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 40px;
   border: 1px solid #d6deea;
   border-radius: 6px;
@@ -53,6 +57,61 @@
 
 .login-panel {
   color: #ffffff;
+}
+
+.auth-login-card {
+  width: min(100%, 720px);
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 480px);
+  margin-top: 22px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.auth-form input {
+  min-height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 6px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #18202f;
+}
+
+.auth-error {
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 10px 12px;
+  font-weight: 800;
+}
+
+.auth-state-screen {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-state-screen .panel {
+  width: min(100%, 620px);
+}
+
+.auth-state-screen h1 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+.auth-link-button {
+  margin-top: 12px;
+  text-decoration: none;
 }
 
 .login-panel h1 {
