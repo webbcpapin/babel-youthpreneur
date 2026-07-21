@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
-import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   Bell,
   BookOpen,
@@ -12,12 +11,14 @@ import {
   Medal,
   QrCode,
   Search,
-  ShieldCheck,
   UploadCloud,
 } from 'lucide-react'
+import { useAuth } from '@/auth/useAuth'
+import { getMonitoringConfig, hasGoogleBackend } from '@/lib/monitoring-config'
+import { getPublicAction, postAction } from '@/services/monitoring-api'
 import './MonitoringPage.css'
 
-type Role = 'admin' | 'dosen' | 'mahasiswa' | 'umkm' | 'juri'
+type Role = 'admin' | 'dosen' | 'mahasiswa' | 'umkm' | 'juri' | 'viewer'
 type View = 'dashboard' | 'learning' | 'attendance' | 'weekly' | 'outputs' | 'challenge' | 'reports'
 type TeamStatus = 'aman' | 'perlu_perhatian' | 'kritis'
 type OutputStatus = 'draft' | 'submitted' | 'revision' | 'approved'
@@ -93,27 +94,6 @@ type BackendStatus = {
   mode: 'local' | 'google'
   message: string
   sheetId?: string
-}
-
-type MonitoringConfig = {
-  sheetId?: string
-  appsScriptUrl?: string
-  supabaseUrl?: string
-  supabaseAnonKey?: string
-}
-
-declare global {
-  interface Window {
-    MONITORING_CONFIG?: MonitoringConfig
-  }
-}
-
-const profiles: Record<Role, Profile> = {
-  admin: { role: 'admin', name: 'Admin Program', title: 'Panitia' },
-  dosen: { role: 'dosen', name: 'Dosen Pendamping', title: 'Dosen' },
-  mahasiswa: { role: 'mahasiswa', name: 'Meizha Hadzami', title: 'Mahasiswa' },
-  umkm: { role: 'umkm', name: 'Dnd Cake n Cookie', title: 'UMKM' },
-  juri: { role: 'juri', name: 'Juri Program', title: 'Juri' },
 }
 
 const teams: Team[] = [
@@ -346,6 +326,9 @@ const localData: MonitoringData = {
   scores,
 }
 
+const emptyMonitoringData: MonitoringData = { teams: [], reports: [], outputs: [], scores: [] }
+const initialMonitoringData = import.meta.env.DEV ? localData : emptyMonitoringData
+
 const navItems: Array<{ key: View; label: string; icon: typeof Gauge }> = [
   { key: 'dashboard', label: 'Dashboard', icon: Gauge },
   { key: 'learning', label: 'Course', icon: BookOpen },
@@ -370,10 +353,6 @@ function statusLabel(value: string) {
   return value.replace(/_/g, ' ')
 }
 
-function roleTitle(role: Role) {
-  return profiles[role]?.title ?? 'Peserta'
-}
-
 function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
   const headers = Object.keys(rows[0] ?? { status: 'Tidak ada data' })
   const escape = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`
@@ -387,119 +366,63 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
   URL.revokeObjectURL(url)
 }
 
-function getMonitoringConfig() {
-  return window.MONITORING_CONFIG ?? {}
+function sessionToken() {
+  try {
+    return JSON.parse(sessionStorage.getItem('byp.session.v1') || '{}').token as string | undefined
+  } catch {
+    return undefined
+  }
 }
 
-let supabaseClient: SupabaseClient | null | undefined
-
-function getSupabaseConfig() {
-  const config = getMonitoringConfig()
+async function fetchGoogleData(): Promise<MonitoringData> {
+  const token = sessionToken()
+  if (!token) throw new Error('Sesi login tidak tersedia.')
+  const payload = await postAction('getData', { session_token: token })
   return {
-    url: config.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || '',
-    anonKey: config.supabaseAnonKey || import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+    teams: (payload.teams as Team[] | undefined) ?? [],
+    reports: (payload.reports as WeeklyReport[] | undefined) ?? [],
+    outputs: (payload.outputs as OutputItem[] | undefined) ?? [],
+    scores: (payload.scores as Score[] | undefined) ?? [],
   }
 }
 
-function getSupabaseClient() {
-  if (supabaseClient !== undefined) return supabaseClient
-  const config = getSupabaseConfig()
-  if (!config.url || !config.anonKey) {
-    supabaseClient = null
-    return supabaseClient
-  }
-  supabaseClient = createClient(config.url, config.anonKey, {
-    auth: {
-      detectSessionInUrl: true,
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  })
-  return supabaseClient
-}
-
-function hasSupabaseAuth() {
-  return Boolean(getSupabaseClient())
-}
-
-function hasGoogleBackend() {
-  const config = getMonitoringConfig()
-  return Boolean(config.appsScriptUrl && /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(config.appsScriptUrl))
-}
-
-async function fetchGoogleData(email?: string, accessToken?: string): Promise<MonitoringData> {
-  const config = getMonitoringConfig()
-  if (!config.appsScriptUrl) throw new Error('URL Apps Script belum diisi.')
-  const payload = accessToken
-    ? await postGoogleAction('getData', { email, access_token: accessToken })
-    : await getGoogleAction('getData', email ? { email } : undefined)
-  if (!payload.ok) throw new Error(payload.error || 'Google backend belum siap.')
-  return {
-    teams: payload.teams ?? localData.teams,
-    reports: payload.reports ?? localData.reports,
-    outputs: payload.outputs ?? localData.outputs,
-    scores: payload.scores ?? localData.scores,
-  }
-}
-
-async function getGoogleAction(action: string, payload?: Record<string, string | number | undefined>) {
-  const config = getMonitoringConfig()
-  if (!config.appsScriptUrl) return { ok: false, error: 'URL Apps Script belum diisi.' }
-  const url = new URL(config.appsScriptUrl)
-  url.searchParams.set('action', action)
-  Object.entries(payload ?? {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== '') url.searchParams.set(key, String(value))
-  })
-  return requestGoogleJson(url.toString())
+async function getGoogleAction(action: string) {
+  return getPublicAction(action)
 }
 
 async function postGoogleAction(action: string, payload: Record<string, string | number | undefined>) {
-  const config = getMonitoringConfig()
-  if (!config.appsScriptUrl) return null
-  const url = new URL(config.appsScriptUrl)
-  url.searchParams.set('action', action)
-  const result = await requestGoogleJson(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-  })
-  if (!result.ok) throw new Error(result.error || 'Google backend belum menerima data.')
-  return result
+  const token = sessionToken()
+  return postAction(action, token ? { ...payload, session_token: token } : payload)
 }
 
-async function requestGoogleJson(url: string, init?: RequestInit) {
-  try {
-    const response = await fetch(url, init)
-    if (!response.ok) throw new Error(`Google backend error ${response.status}`)
-    const contentType = response.headers.get('content-type') || ''
-    if (!contentType.includes('application/json')) {
-      throw new Error('Backend Google Apps Script belum siap. Pastikan Code.gs sudah memakai script lengkap terbaru, lalu deploy versi baru.')
-    }
-    return await response.json()
-  } catch (error) {
-    if (error instanceof Error && error.message !== 'Failed to fetch') throw error
-    throw new Error('Backend Google Apps Script belum bisa dihubungi. Pastikan deployment Web App memakai akses Anyone dan code lengkap terbaru sudah dideploy.')
-  }
-}
-
-function getScopedTeams(profile: Profile, sourceTeams: Team[]) {
-  if (profile.role === 'mahasiswa') return sourceTeams.filter((team) => team.id === 'g6')
-  if (profile.role === 'umkm') return sourceTeams.filter((team) => team.id === 'g3')
-  if (profile.role === 'dosen') return sourceTeams.filter((team) => team.campus === 'Universitas Bangka Belitung')
+function getScopedTeams(_profile: Profile, sourceTeams: Team[]) {
   return sourceTeams
 }
 
+function toMonitoringRole(role: string): Role {
+  if (['super_admin', 'admin_panitia', 'admin'].includes(role)) return 'admin'
+  if (role === 'ketua_tim') return 'mahasiswa'
+  if (role === 'dosen' || role === 'mahasiswa' || role === 'umkm' || role === 'juri') return role
+  return 'viewer'
+}
+
 function MonitoringPage() {
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const { profile: authProfile, logout } = useAuth()
   const [view, setView] = useState<View>('dashboard')
   const [query, setQuery] = useState('')
-  const [data, setData] = useState<MonitoringData>(localData)
-  const [authMessage, setAuthMessage] = useState('')
+  const [data, setData] = useState<MonitoringData>(initialMonitoringData)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(() => ({
     mode: hasGoogleBackend() ? 'google' : 'local',
-    message: hasGoogleBackend() ? 'Menghubungkan ke Google Sheet...' : 'Mode lokal aktif. Isi URL Apps Script untuk memakai Google Sheet/Drive.',
+    message: hasGoogleBackend() ? 'Menghubungkan ke Google Sheet...' : 'Backend Google belum dikonfigurasi.',
     sheetId: getMonitoringConfig().sheetId,
   }))
+
+  const profile = useMemo<Profile | null>(() => authProfile ? {
+    role: toMonitoringRole(authProfile.role),
+    name: authProfile.name,
+    title: authProfile.title,
+    email: authProfile.email,
+  } : null, [authProfile])
 
   useEffect(() => {
     let cancelled = false
@@ -518,7 +441,7 @@ function MonitoringPage() {
         if (cancelled) return
         setBackendStatus({
           mode: 'local',
-          message: error instanceof Error ? error.message : 'Gagal menghubungkan Google backend. Mode lokal tetap aktif.',
+          message: error instanceof Error ? error.message : 'Gagal menghubungkan Google backend.',
           sheetId: getMonitoringConfig().sheetId,
         })
       })
@@ -529,80 +452,35 @@ function MonitoringPage() {
   }, [])
 
   useEffect(() => {
-    const supabase = getSupabaseClient()
-    if (!supabase) return
     let cancelled = false
 
-    async function openSession(session: Session | null) {
-      if (!session?.user.email || cancelled) return
-      try {
-        await loginWithGoogleSession(session)
-      } catch (error) {
+    if (!hasGoogleBackend() || !authProfile) return
+    fetchGoogleData()
+      .then((nextData) => {
+        if (!cancelled) setData(nextData)
+      })
+      .catch((error: unknown) => {
         if (cancelled) return
-        setAuthMessage(error instanceof Error ? error.message : 'Akun Google belum aktif atau belum diberi role oleh admin.')
-      }
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => openSession(session))
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setProfile(null)
-        return
-      }
-      if (event === 'SIGNED_IN') openSession(session)
-    })
+        setBackendStatus({
+          mode: 'local',
+          message: error instanceof Error ? error.message : 'Data monitoring belum dapat dimuat.',
+          sheetId: getMonitoringConfig().sheetId,
+        })
+      })
 
     return () => {
       cancelled = true
-      listener.subscription.unsubscribe()
     }
-  }, [])
+  }, [authProfile])
 
   const scopedTeams = useMemo(() => {
-    const base = profile ? getScopedTeams(profile, data.teams) : data.teams
+    const base = profile ? getScopedTeams(profile, data.teams) : []
     const cleanQuery = query.toLowerCase().trim()
     if (!cleanQuery) return base
     return base.filter((team) => `${team.name} ${team.campus} ${team.umkm} ${team.members.join(' ')}`.toLowerCase().includes(cleanQuery))
   }, [data.teams, profile, query])
 
-  async function loginWithGoogleSession(session: Session) {
-    const cleanEmail = session.user.email?.trim().toLowerCase() || ''
-    if (!cleanEmail) throw new Error('Email Google wajib diisi.')
-    const result = await postGoogleAction('loginByEmail', { email: cleanEmail, access_token: session.access_token })
-    if (!result?.profile) throw new Error(result?.error || 'Akun belum aktif.')
-    const nextProfile = result.profile
-    setProfile({
-      role: nextProfile.role as Role,
-      name: nextProfile.name || cleanEmail,
-      title: nextProfile.title || roleTitle(nextProfile.role as Role),
-      email: cleanEmail,
-    })
-    if (hasGoogleBackend()) {
-      setData(await fetchGoogleData(cleanEmail, session.access_token))
-    }
-  }
-
-  async function signInWithGoogle() {
-    setAuthMessage('')
-    const supabase = getSupabaseClient()
-    if (!supabase) throw new Error('Konfigurasi Supabase belum tersedia. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.')
-    const redirectTo = `${window.location.origin}/`
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo },
-    })
-    if (error) throw error
-  }
-
-  async function signOut() {
-    const supabase = getSupabaseClient()
-    if (supabase) await supabase.auth.signOut()
-    setProfile(null)
-  }
-
-  if (!profile) {
-    return <LoginScreen onSelect={(role) => setProfile(profiles[role])} onGoogleLogin={signInWithGoogle} authMessage={authMessage} />
-  }
+  if (!profile) return null
 
   return (
     <div className="monitoring-shell">
@@ -635,7 +513,7 @@ function MonitoringPage() {
               <small>{profile.title}</small>
             </div>
           </div>
-          <button className="monitoring-button" onClick={signOut}>
+          <button className="monitoring-button" onClick={() => { void logout() }}>
             <LogOut size={16} /> Keluar
           </button>
         </aside>
@@ -672,136 +550,6 @@ function MonitoringPage() {
         </main>
       </div>
     </div>
-  )
-}
-
-function LoginScreen({ onSelect, onGoogleLogin, authMessage }: { onSelect: (role: Role) => void; onGoogleLogin: () => Promise<void>; authMessage: string }) {
-  const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
-  const [requestedRole, setRequestedRole] = useState<Role>('mahasiswa')
-  const [institution, setInstitution] = useState('')
-  const [whatsapp, setWhatsapp] = useState('')
-  const [note, setNote] = useState('')
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function submitRegistration(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    setMessage('')
-    try {
-      const result = await postGoogleAction('registerAccount', {
-        email,
-        name,
-        requested_role: requestedRole,
-        institution,
-        whatsapp,
-        note,
-      })
-      setMessage(result?.message || 'Registrasi diterima. Admin akan mengonfirmasi akun dan menetapkan role.')
-      setName('')
-      setInstitution('')
-      setWhatsapp('')
-      setNote('')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Registrasi belum berhasil dikirim.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function startGoogleLogin() {
-    setBusy(true)
-    setMessage('')
-    try {
-      await onGoogleLogin()
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Login Google belum bisa dimulai.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <main
-      className="monitoring-login"
-      style={{
-        backgroundImage:
-          'linear-gradient(120deg, rgba(15, 118, 110, 0.88), rgba(30, 64, 175, 0.82)), url("./images/banner-opening.png")',
-      }}
-    >
-      <section className="login-panel">
-        <p className="eyebrow">Babel Youthpreneur 2026</p>
-        <h1>Learning and Monitoring Platform</h1>
-        <p>
-          Register akun Google terlebih dahulu. Setelah admin mengonfirmasi dan menetapkan role, masuk dilakukan langsung dengan akun Google asli.
-        </p>
-        <form className="register-card" onSubmit={submitRegistration}>
-          <div className="form-grid two">
-            <label>Nama lengkap <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nama sesuai akun Google" /></label>
-            <label>Email Google <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@gmail.com" /></label>
-            <label>Daftar sebagai <select value={requestedRole} onChange={(event) => setRequestedRole(event.target.value as Role)}>
-              <option value="mahasiswa">Mahasiswa</option>
-              <option value="dosen">Dosen</option>
-              <option value="umkm">UMKM</option>
-              <option value="juri">Juri</option>
-              <option value="admin">Panitia</option>
-            </select></label>
-            <label>Kampus/UMKM/Instansi <input value={institution} onChange={(event) => setInstitution(event.target.value)} placeholder="Contoh: UBB / DND Cake" /></label>
-            <label>WhatsApp <input value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} placeholder="08..." /></label>
-            <label>Catatan <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Tim, UMKM, atau kebutuhan akses" /></label>
-          </div>
-          <button className="monitoring-button primary" disabled={busy}>
-            <ShieldCheck size={16} /> Register Akun Google
-          </button>
-        </form>
-        <div className="login-check-card oauth-card">
-          <div>
-            <strong>Masuk dengan Google</strong>
-            <span>Email Google akan diverifikasi oleh Supabase, lalu dicocokkan dengan status aktif di Google Sheet.</span>
-          </div>
-          <button className="monitoring-button primary" disabled={busy || !hasSupabaseAuth()} onClick={startGoogleLogin}>
-            <ShieldCheck size={16} /> Masuk dengan Google
-          </button>
-        </div>
-        {!hasSupabaseAuth() && <div className="login-message warning">Supabase Auth belum dikonfigurasi. Isi URL dan anon key Supabase di Vercel.</div>}
-        {(message || authMessage) && <div className="login-message">{message || authMessage}</div>}
-        {!hasGoogleBackend() && (
-          <details className="demo-login-panel">
-            <summary>Mode demo lokal</summary>
-            <div className="role-grid">
-              {Object.values(profiles).map((profile) => (
-                <button className="monitoring-button" key={profile.role} onClick={() => onSelect(profile.role)}>
-                  {profile.title}
-                </button>
-              ))}
-            </div>
-          </details>
-        )}
-      </section>
-      <section className="login-health" aria-label="Program health">
-        <div className="health-tile">
-          <span>Program Health</span>
-          <strong>78%</strong>
-        </div>
-        <div className="health-tile">
-          <span>Tim Aktif</span>
-          <strong>10 Tim</strong>
-        </div>
-        <div className="health-tile">
-          <span>Mahasiswa</span>
-          <strong>30 Peserta</strong>
-        </div>
-        <div className="health-tile">
-          <span>Presensi QR</span>
-          <strong>Foto + Geotag</strong>
-        </div>
-        <div className="health-tile">
-          <span>Output UMKM</span>
-          <strong>Challenge</strong>
-        </div>
-      </section>
-    </main>
   )
 }
 

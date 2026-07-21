@@ -1,8 +1,8 @@
 const MONITORING_SPREADSHEET_ID = '1PqRraw7Qt5nfpWECAemnTRH4edrKDZfti0gBImmgDbI';
 const MONITORING_ROOT_FOLDER_NAME = 'Babel Youthpreneur Monitoring';
 const KURASI_SHEET_NAME = 'Kurasi UMKM 2026';
-const SUPABASE_URL = '';
-const SUPABASE_ANON_KEY = '';
+const GOOGLE_OAUTH_CLIENT_ID = PropertiesService.getScriptProperties().getProperty('GOOGLE_OAUTH_CLIENT_ID') || '';
+const SESSION_DURATION_SECONDS = 60 * 60 * 8;
 
 const SHEETS = {
   appUsers: 'AppUsers',
@@ -18,6 +18,7 @@ const SHEETS = {
   outputs: 'Outputs',
   challengeScores: 'ChallengeScores',
   registrations: 'Registrations',
+  sessions: 'Sessions',
   notifications: 'Notifications',
   auditLogs: 'AuditLogs',
 };
@@ -36,6 +37,7 @@ const SCHEMAS = {
   [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at'],
   [SHEETS.challengeScores]: ['id', 'team_id', 'category', 'score', 'note', 'judge_email', 'submitted_at'],
   [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'status', 'admin_note', 'submitted_at'],
+  [SHEETS.sessions]: ['id', 'user_id', 'token_hash', 'expires_at', 'revoked_at', 'created_at'],
   [SHEETS.notifications]: ['id', 'user_email', 'title', 'message', 'is_read', 'created_at'],
   [SHEETS.auditLogs]: ['id', 'actor_email', 'action', 'entity_type', 'entity_id', 'metadata', 'created_at'],
 };
@@ -74,9 +76,11 @@ function handleRequest_(e, method) {
 
     if (action === 'test') return json_({ ok: true, service: 'Babel Youthpreneur Monitoring Google Backend', time: now_() });
     if (action === 'submitKurasi') return json_(submitKurasi_(payload));
-    if (action === 'bootstrap') return json_(bootstrap_());
+    if (action === 'bootstrap') return json_({ ok: false, error: 'Bootstrap hanya boleh dijalankan dari editor Apps Script oleh administrator.' });
     if (action === 'getData') return json_(getData_(payload));
-    if (action === 'loginByEmail') return json_(loginByEmail_(payload));
+    if (action === 'loginWithGoogle') return json_(loginWithGoogle_(payload));
+    if (action === 'getSession') return json_(getSession_(payload));
+    if (action === 'logout') return json_(logout_(payload));
     if (action === 'registerAccount') return json_(registerAccount_(payload));
     if (action === 'submitWeeklyReport') return json_(submitWeeklyReport_(payload));
     if (action === 'submitOutput') return json_(submitOutput_(payload));
@@ -123,17 +127,10 @@ function bootstrap_() {
 function getData_(payload) {
   bootstrap_();
   const ss = getSpreadsheet_();
-  if (requiresSupabaseAuth_()) {
-    const verifiedEmail = verifySupabaseEmail_(payload);
-    if (!verifiedEmail) return { ok: false, error: 'Data monitoring hanya tersedia setelah login Google OAuth.' };
-    payload.email = verifiedEmail;
-  }
-  const loginResult = payload.email ? loginByEmail_(payload) : null;
-  if (payload.email && (!loginResult || !loginResult.ok)) return loginResult;
-  const profile = loginResult ? loginResult.profile : null;
+  const profile = requireProfile_(payload);
   const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses));
   const umkms = readObjects_(ss.getSheetByName(SHEETS.umkms));
-  const teams = profile ? scopeTeamsForProfile_(profile, readObjects_(ss.getSheetByName(SHEETS.teams))) : [];
+  const teams = scopeTeamsForProfile_(profile, readObjects_(ss.getSheetByName(SHEETS.teams)));
   const teamIds = teams.map((team) => team.id);
   const members = readObjects_(ss.getSheetByName(SHEETS.teamMembers));
 
@@ -188,66 +185,116 @@ function getData_(payload) {
   };
 }
 
-function loginByEmail_(payload) {
+function loginWithGoogle_(payload) {
   bootstrap_();
-  const verifiedEmail = verifySupabaseEmail_(payload);
-  const submittedEmail = String(payload.email || '').trim().toLowerCase();
-  const email = String(verifiedEmail || submittedEmail).toLowerCase();
-  if (!email) return { ok: false, error: 'Email is required.' };
-  if (requiresSupabaseAuth_() && !verifiedEmail) {
-    return { ok: false, error: 'Login wajib melalui Google OAuth yang valid.' };
-  }
-  if (verifiedEmail && submittedEmail && verifiedEmail !== submittedEmail) {
-    return { ok: false, error: 'Email login tidak sesuai dengan akun Google yang terverifikasi.' };
-  }
+  const identity = verifyGoogleIdToken_(payload.id_token);
+  if (!identity.ok) return identity;
 
   const users = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.appUsers));
-  const user = users.find((item) => String(item.email || '').toLowerCase() === email);
-  if (!user) return { ok: false, error: 'Email belum terdaftar. Silakan register terlebih dahulu.' };
-  if (String(user.status || '').toLowerCase() !== 'active') {
-    return { ok: false, pending: true, error: 'Akun sudah terdaftar dan menunggu konfirmasi admin.' };
-  }
-  if (!['super_admin', 'admin_panitia', 'admin', 'dosen', 'mahasiswa', 'ketua_tim', 'umkm', 'kampus_viewer', 'pimpinan_viewer', 'juri'].includes(String(user.role || '').toLowerCase())) {
-    return { ok: false, pending: true, error: 'Akun belum memiliki role. Admin perlu menetapkan role terlebih dahulu.' };
-  }
+  const user = users.find((item) => String(item.email || '').trim().toLowerCase() === identity.email);
+  const userError = validateActiveUser_(user);
+  if (userError) return userError;
 
+  const session = createSession_(user);
+  const profile = profileFromUser_(user);
+  audit_(profile.email, 'loginWithGoogle', 'session', session.id, { user_id: user.id });
+  return { ok: true, profile: profile, session: { token: session.token, expiresAt: session.expires_at } };
+}
+
+function getSession_(payload) {
+  bootstrap_();
+  const context = getSessionContext_(payload);
   return {
     ok: true,
-    profile: {
-      role: user.role,
-      name: user.name,
-      title: roleTitle_(user.role),
-      email: user.email,
-      teamId: user.team_id,
-      campusId: user.campus_id,
-      umkmId: user.umkm_id,
-    },
+    profile: context.profile,
+    session: { token: context.token, expiresAt: context.session.expires_at },
   };
 }
 
-function requiresSupabaseAuth_() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+function logout_(payload) {
+  bootstrap_();
+  const token = String((payload || {}).session_token || '');
+  if (!token) return { ok: true };
+  const session = findSession_(token);
+  if (session) updateObjectById_(SHEETS.sessions, session.id, { revoked_at: now_() });
+  return { ok: true };
 }
 
-function verifySupabaseEmail_(payload) {
-  if (!payload.access_token) return '';
-  if (!requiresSupabaseAuth_()) return '';
-
+function verifyGoogleIdToken_(idToken) {
+  if (!GOOGLE_OAUTH_CLIENT_ID) return { ok: false, error: 'Google OAuth belum dikonfigurasi di Apps Script.' };
+  if (!idToken || String(idToken).split('.').length !== 3) return { ok: false, error: 'Bukti identitas Google tidak valid.' };
   try {
-    const response = UrlFetchApp.fetch(SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/user', {
-      method: 'get',
-      muteHttpExceptions: true,
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: 'Bearer ' + payload.access_token,
-      },
-    });
-    if (response.getResponseCode() !== 200) return '';
-    const user = JSON.parse(response.getContentText() || '{}');
-    return String(user.email || '').trim().toLowerCase();
+    const url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(String(idToken));
+    const response = UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
+    if (response.getResponseCode() !== 200) return { ok: false, error: 'Token Google tidak dapat diverifikasi.' };
+    const token = JSON.parse(response.getContentText() || '{}');
+    const issuer = String(token.iss || '');
+    const isExpired = Number(token.exp || 0) * 1000 <= Date.now();
+    if (String(token.aud || '') !== GOOGLE_OAUTH_CLIENT_ID || !['accounts.google.com', 'https://accounts.google.com'].includes(issuer) || String(token.email_verified) !== 'true' || isExpired) {
+      return { ok: false, error: 'Token Google tidak sesuai untuk aplikasi ini.' };
+    }
+    const email = String(token.email || '').trim().toLowerCase();
+    if (!email) return { ok: false, error: 'Email Google tidak ditemukan.' };
+    return { ok: true, email: email };
   } catch (error) {
-    return '';
+    return { ok: false, error: 'Verifikasi identitas Google gagal.' };
   }
+}
+
+function validateActiveUser_(user) {
+  if (!user) return { ok: false, error: 'Email belum terdaftar. Silakan register terlebih dahulu.' };
+  if (String(user.status || '').toLowerCase() !== 'active') return { ok: false, pending: true, error: 'Akun menunggu konfirmasi admin.' };
+  if (!isKnownRole_(user.role)) return { ok: false, pending: true, error: 'Akun belum memiliki role. Admin perlu menetapkan role terlebih dahulu.' };
+  return null;
+}
+
+function isKnownRole_(role) {
+  return ['super_admin', 'admin_panitia', 'admin', 'dosen', 'mahasiswa', 'ketua_tim', 'umkm', 'kampus_viewer', 'pimpinan_viewer', 'juri'].includes(String(role || '').toLowerCase());
+}
+
+function profileFromUser_(user) {
+  return {
+    role: String(user.role || '').toLowerCase(),
+    name: user.name || '',
+    title: roleTitle_(String(user.role || '').toLowerCase()),
+    email: String(user.email || '').toLowerCase(),
+    teamId: user.team_id || '',
+    campusId: user.campus_id || '',
+    umkmId: user.umkm_id || '',
+  };
+}
+
+function createSession_(user) {
+  const token = Utilities.getUuid() + Utilities.getUuid() + new Date().getTime();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_DURATION_SECONDS * 1000).toISOString();
+  const row = {
+    id: makeId_('session'),
+    user_id: user.id,
+    token_hash: hashToken_(token),
+    expires_at: expiresAt,
+    revoked_at: '',
+    created_at: now.toISOString(),
+  };
+  appendObject_(SHEETS.sessions, row);
+  return { id: row.id, token: token, expires_at: expiresAt };
+}
+
+function findSession_(token) {
+  const tokenHash = hashToken_(token);
+  return readObjects_(getSpreadsheet_().getSheetByName(SHEETS.sessions)).find((item) => String(item.token_hash || '') === tokenHash);
+}
+
+function getSessionContext_(payload) {
+  const token = String((payload || {}).session_token || '');
+  if (!token) throw new Error('Sesi login diperlukan.');
+  const session = findSession_(token);
+  if (!session || session.revoked_at || new Date(session.expires_at).getTime() <= Date.now()) throw new Error('Sesi sudah tidak berlaku. Silakan masuk kembali.');
+  const users = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.appUsers));
+  const user = users.find((item) => String(item.id || '') === String(session.user_id || ''));
+  const userError = validateActiveUser_(user);
+  if (userError) throw new Error(userError.error);
+  return { token: token, session: session, profile: profileFromUser_(user) };
 }
 
 function registerAccount_(payload) {
@@ -259,8 +306,15 @@ function registerAccount_(payload) {
   const whatsapp = String(payload.whatsapp || '').trim();
   const note = String(payload.note || '').trim();
 
-  if (!email || email.indexOf('@') === -1) return { ok: false, error: 'Email Google wajib diisi dengan format yang benar.' };
-  if (!name) return { ok: false, error: 'Nama lengkap wajib diisi.' };
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Email Google wajib diisi dengan format yang benar.' };
+  if (!name || name.length > 120) return { ok: false, error: 'Nama lengkap wajib diisi dan maksimal 120 karakter.' };
+  if (!['mahasiswa', 'dosen', 'umkm', 'juri', 'admin_panitia'].includes(requestedRole)) return { ok: false, error: 'Role pendaftaran tidak valid.' };
+  if (institution.length > 160 || whatsapp.length > 32 || note.length > 500) return { ok: false, error: 'Data pendaftaran melebihi batas yang diizinkan.' };
+
+  const cache = CacheService.getScriptCache();
+  const rateLimitKey = 'registration-' + hashToken_(email);
+  if (cache.get(rateLimitKey)) return { ok: false, error: 'Permintaan pendaftaran baru saja dikirim. Tunggu satu menit sebelum mencoba lagi.' };
+  cache.put(rateLimitKey, '1', 60);
 
   const ss = getSpreadsheet_();
   const users = readObjects_(ss.getSheetByName(SHEETS.appUsers));
@@ -328,9 +382,7 @@ function isStudentRole_(role) {
 }
 
 function requireProfile_(payload) {
-  const login = loginByEmail_(payload || {});
-  if (!login.ok) throw new Error(login.error || 'Login diperlukan.');
-  return login.profile;
+  return getSessionContext_(payload || {}).profile;
 }
 
 function canAccessTeam_(profile, teamId) {
@@ -355,11 +407,11 @@ function submitWeeklyReport_(payload) {
     drive_link: payload.drive_link || '',
     publication_link: payload.publication_link || '',
     validation: 'pending',
-    submitted_by: payload.email || '',
+    submitted_by: profile.email,
     submitted_at: now_(),
   };
   appendObject_(SHEETS.weeklyReports, row);
-  audit_(payload.email, 'submitWeeklyReport', 'weekly_report', row.id, row);
+  audit_(profile.email, 'submitWeeklyReport', 'weekly_report', row.id, row);
   return { ok: true, row: row };
 }
 
@@ -378,11 +430,11 @@ function submitOutput_(payload) {
     drive_link: payload.drive_link || '',
     publication_link: payload.publication_link || '',
     umkm_feedback: 'Menunggu review',
-    submitted_by: payload.email || '',
+    submitted_by: profile.email,
     submitted_at: now_(),
   };
   appendObject_(SHEETS.outputs, row);
-  audit_(payload.email, 'submitOutput', 'output', row.id, row);
+  audit_(profile.email, 'submitOutput', 'output', row.id, row);
   return { ok: true, row: row };
 }
 
@@ -398,11 +450,11 @@ function submitScore_(payload) {
     category: payload.category,
     score: score,
     note: payload.note || '',
-    judge_email: payload.email || '',
+    judge_email: profile.email,
     submitted_at: now_(),
   };
   appendObject_(SHEETS.challengeScores, row);
-  audit_(payload.email, 'submitScore', 'challenge_score', row.id, row);
+  audit_(profile.email, 'submitScore', 'challenge_score', row.id, row);
   return { ok: true, row: row };
 }
 
@@ -416,8 +468,8 @@ function submitAttendance_(payload) {
     id: makeId_('att'),
     session_id: tokenResult.session_id || '',
     team_id: payload.team_id || '',
-    name: payload.name || '',
-    email: payload.email || '',
+    name: profile.name,
+    email: profile.email,
     latitude: payload.latitude || '',
     longitude: payload.longitude || '',
     photo_drive_url: savePhotoIfPresent_(payload),
@@ -425,7 +477,7 @@ function submitAttendance_(payload) {
     submitted_at: now_(),
   };
   appendObject_(SHEETS.attendanceRecords, row);
-  audit_(payload.email, 'submitAttendance', 'attendance', row.id, row);
+  audit_(profile.email, 'submitAttendance', 'attendance', row.id, row);
   return { ok: true, row: row, token: tokenResult };
 }
 
@@ -605,6 +657,22 @@ function appendObject_(sheetName, rowObject) {
   sheet.appendRow(headers.map((header) => rowObject[header] === undefined ? '' : rowObject[header]));
 }
 
+function updateObjectById_(sheetName, id, patch) {
+  const sheet = getSpreadsheet_().getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return false;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  const idColumn = headers.indexOf('id');
+  if (idColumn < 0) return false;
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  const rowIndex = values.findIndex((row) => String(row[idColumn] || '') === String(id));
+  if (rowIndex < 0) return false;
+  Object.keys(patch).forEach((key) => {
+    const column = headers.indexOf(key);
+    if (column >= 0) sheet.getRange(rowIndex + 2, column + 1).setValue(patch[key]);
+  });
+  return true;
+}
+
 function appendDynamicObject_(sheetName, rowObject) {
   const ss = getSpreadsheet_();
   let sheet = ss.getSheetByName(sheetName);
@@ -689,6 +757,12 @@ function roleTitle_(role) {
 
 function makeId_(prefix) {
   return prefix + '-' + Utilities.getUuid();
+}
+
+function hashToken_(value) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value))
+    .map((byte) => ('0' + ((byte + 256) % 256).toString(16)).slice(-2))
+    .join('');
 }
 
 function csvCell_(value) {
