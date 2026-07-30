@@ -11,6 +11,7 @@ import {
   Medal,
   QrCode,
   Search,
+  Users,
   UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
@@ -19,7 +20,7 @@ import { getPublicAction, postAction } from '@/services/monitoring-api'
 import './MonitoringPage.css'
 
 type Role = 'admin' | 'dosen' | 'mahasiswa' | 'umkm' | 'juri' | 'viewer'
-type View = 'dashboard' | 'learning' | 'attendance' | 'weekly' | 'outputs' | 'challenge' | 'reports'
+type View = 'dashboard' | 'learning' | 'attendance' | 'weekly' | 'outputs' | 'challenge' | 'pendamping' | 'reports'
 type TeamStatus = 'aman' | 'perlu_perhatian' | 'kritis'
 type OutputStatus = 'draft' | 'submitted' | 'revision' | 'approved'
 
@@ -83,11 +84,23 @@ type Score = {
   note: string
 }
 
+type Mentor = {
+  id: string
+  name: string
+  email: string
+  role: 'dosen' | 'admin_panitia'
+  campus: string
+  specialization: string
+  assignedTeams: number
+  status: 'aktif' | 'perlu_penugasan'
+}
+
 type MonitoringData = {
   teams: Team[]
   reports: WeeklyReport[]
   outputs: OutputItem[]
   scores: Score[]
+  mentors: Mentor[]
 }
 
 type BackendStatus = {
@@ -324,9 +337,10 @@ const localData: MonitoringData = {
   reports,
   outputs,
   scores,
+  mentors: [],
 }
 
-const emptyMonitoringData: MonitoringData = { teams: [], reports: [], outputs: [], scores: [] }
+const emptyMonitoringData: MonitoringData = { teams: [], reports: [], outputs: [], scores: [], mentors: [] }
 const initialMonitoringData = import.meta.env.DEV ? localData : emptyMonitoringData
 
 const navItems: Array<{ key: View; label: string; icon: typeof Gauge }> = [
@@ -336,6 +350,7 @@ const navItems: Array<{ key: View; label: string; icon: typeof Gauge }> = [
   { key: 'weekly', label: 'Laporan', icon: ClipboardCheck },
   { key: 'outputs', label: 'Output', icon: UploadCloud },
   { key: 'challenge', label: 'Challenge', icon: Medal },
+  { key: 'pendamping', label: 'Pendamping', icon: Users },
   { key: 'reports', label: 'Export', icon: FileSpreadsheet },
 ]
 
@@ -383,6 +398,7 @@ async function fetchGoogleData(): Promise<MonitoringData> {
     reports: (payload.reports as WeeklyReport[] | undefined) ?? [],
     outputs: (payload.outputs as OutputItem[] | undefined) ?? [],
     scores: (payload.scores as Score[] | undefined) ?? [],
+    mentors: (payload.mentors as Mentor[] | undefined) ?? [],
   }
 }
 
@@ -495,7 +511,7 @@ function MonitoringPage() {
           </div>
 
           <nav className="monitoring-nav" aria-label="Navigasi monitoring">
-            {navItems.map((item) => {
+            {navItems.filter((item) => item.key !== 'pendamping' || profile.role === 'admin' || profile.role === 'dosen').map((item) => {
               const Icon = item.icon
               return (
                 <button className={view === item.key ? 'nav-button active' : 'nav-button'} key={item.key} onClick={() => setView(item.key)}>
@@ -546,6 +562,7 @@ function MonitoringPage() {
           {view === 'weekly' && <WeeklyMonitoring profile={profile} teams={scopedTeams} reports={data.reports} setData={setData} />}
           {view === 'outputs' && <OutputTracker profile={profile} teams={scopedTeams} outputs={data.outputs} setData={setData} />}
           {view === 'challenge' && <ChallengeScoring profile={profile} teams={scopedTeams} scores={data.scores} />}
+          {view === 'pendamping' && <MentorCenter profile={profile} mentors={data.mentors} teams={scopedTeams} />}
           {view === 'reports' && <ReportCenter profile={profile} teams={scopedTeams} />}
         </main>
       </div>
@@ -1008,6 +1025,37 @@ function ChallengeScoring({ profile, teams: visibleTeams, scores: activeScores }
   )
 }
 
+function MentorCenter({ profile, mentors, teams: visibleTeams }: { profile: Profile; mentors: Mentor[]; teams: Team[] }) {
+  if (profile.role !== 'admin' && profile.role !== 'dosen') {
+    return <section className="panel"><div className="empty-state">Data pendamping hanya tersedia untuk Panitia dan Dosen.</div></section>
+  }
+
+  const activeMentors = mentors.filter((mentor) => mentor.status === 'aktif')
+
+  return (
+    <div className="content-grid">
+      <section className="metric-grid">
+        <Metric label="Total Pendamping" value={mentors.length} hint="Dosen dan panitia pendamping" />
+        <Metric label="Pendamping Aktif" value={activeMentors.length} hint="Status aktif" />
+        <Metric label="Tim Dalam Scope" value={visibleTeams.length} hint="Sesuai akses pengguna" />
+      </section>
+      <section className="panel">
+        <div className="panel-title"><h3>Data Pendamping Program</h3><span className="muted">Sumber: akun aktif di AppUsers</span></div>
+        <div className="list-grid">
+          {mentors.map((mentor) => (
+            <article key={mentor.id} className="list-item">
+              <div><strong>{mentor.name}</strong><p className="muted">{mentor.email}</p></div>
+              <div className="tag-row"><span className="role-pill">{mentor.role === 'dosen' ? 'Dosen Pendamping' : 'Panitia Pendamping'}</span><span className={mentor.status === 'aktif' ? 'status-pill approved' : 'status-pill pending'}>{mentor.status}</span></div>
+              <p className="muted">{mentor.campus}</p><p>{mentor.specialization}</p><p className="muted">Tim binaan: {mentor.assignedTeams}</p>
+            </article>
+          ))}
+          {mentors.length === 0 && <div className="empty-state">Belum ada pendamping aktif yang sesuai dengan akses Anda.</div>}
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function ReportCenter({ profile, teams: visibleTeams }: { profile: Profile; teams: Team[] }) {
   if (profile.role !== 'admin' && profile.role !== 'dosen') {
     return (
@@ -1120,6 +1168,7 @@ function pageTitle(view: View) {
     weekly: 'Laporan Mingguan',
     outputs: 'Output UMKM',
     challenge: 'Challenge Scoring',
+    pendamping: 'Data Pendamping',
     reports: 'Pusat Laporan',
   }
   return titles[view]

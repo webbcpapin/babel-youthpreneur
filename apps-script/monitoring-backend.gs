@@ -36,7 +36,7 @@ const SCHEMAS = {
   [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at'],
   [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at'],
   [SHEETS.challengeScores]: ['id', 'team_id', 'category', 'score', 'note', 'judge_email', 'submitted_at'],
-  [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'status', 'admin_note', 'submitted_at'],
+  [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'data_consent', 'status', 'admin_note', 'submitted_at'],
   [SHEETS.sessions]: ['id', 'user_id', 'token_hash', 'expires_at', 'revoked_at', 'created_at'],
   [SHEETS.notifications]: ['id', 'user_email', 'title', 'message', 'is_read', 'created_at'],
   [SHEETS.auditLogs]: ['id', 'actor_email', 'action', 'entity_type', 'entity_id', 'metadata', 'created_at'],
@@ -133,6 +133,7 @@ function getData_(payload) {
   const teams = scopeTeamsForProfile_(profile, readObjects_(ss.getSheetByName(SHEETS.teams)));
   const teamIds = teams.map((team) => team.id);
   const members = readObjects_(ss.getSheetByName(SHEETS.teamMembers));
+  const mentors = buildMentors_(ss, profile, teams);
 
   return {
     ok: true,
@@ -182,6 +183,7 @@ function getData_(payload) {
       score: Number(row.score || 0),
       note: row.note || '',
     })),
+    mentors: mentors,
   };
 }
 
@@ -305,11 +307,13 @@ function registerAccount_(payload) {
   const institution = String(payload.institution || '').trim();
   const whatsapp = String(payload.whatsapp || '').trim();
   const note = String(payload.note || '').trim();
+  const dataConsent = payload.data_consent === true || String(payload.data_consent || '').toLowerCase() === 'true';
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Email Google wajib diisi dengan format yang benar.' };
   if (!name || name.length > 120) return { ok: false, error: 'Nama lengkap wajib diisi dan maksimal 120 karakter.' };
   if (!['mahasiswa', 'dosen', 'umkm', 'juri', 'admin_panitia'].includes(requestedRole)) return { ok: false, error: 'Role pendaftaran tidak valid.' };
   if (institution.length > 160 || whatsapp.length > 32 || note.length > 500) return { ok: false, error: 'Data pendaftaran melebihi batas yang diizinkan.' };
+  if (!dataConsent) return { ok: false, error: 'Persetujuan pemrosesan data wajib diberikan.' };
 
   const cache = CacheService.getScriptCache();
   const rateLimitKey = 'registration-' + hashToken_(email);
@@ -331,6 +335,7 @@ function registerAccount_(payload) {
     institution: institution,
     whatsapp: whatsapp,
     note: note,
+    data_consent: 'true',
     status: 'pending_admin_review',
     admin_note: '',
     submitted_at: now_(),
@@ -351,13 +356,43 @@ function registerAccount_(payload) {
     });
   }
 
-  audit_(email, 'registerAccount', 'registration', row.id, row);
+  audit_(email, 'registerAccount', 'registration', row.id, { email: email, requested_role: requestedRole, status: row.status });
   return {
     ok: true,
     status: 'pending_admin_review',
     message: 'Registrasi diterima. Admin akan mengonfirmasi akun dan menetapkan role.',
     row: row,
   };
+}
+
+function buildMentors_(ss, profile, scopedTeams) {
+  if (!isAdminRole_(profile.role) && profile.role !== 'dosen') return [];
+
+  const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses));
+  const campusNameById = {};
+  campuses.forEach((campus) => { campusNameById[campus.id] = campus.name || ''; });
+
+  return readObjects_(ss.getSheetByName(SHEETS.appUsers))
+    .filter((user) => ['dosen', 'admin_panitia', 'admin', 'super_admin'].includes(String(user.role || '').toLowerCase()))
+    .filter((user) => {
+      if (isAdminRole_(profile.role)) return true;
+      const role = String(user.role || '').toLowerCase();
+      return role !== 'dosen' || String(user.email || '').toLowerCase() === profile.email || String(user.campus_id || '') === profile.campusId;
+    })
+    .map((user) => {
+      const role = String(user.role || '').toLowerCase();
+      const campusId = String(user.campus_id || '');
+      return {
+        id: user.id || makeId_('mentor'),
+        name: user.name || 'Pendamping Program',
+        email: String(user.email || '').toLowerCase(),
+        role: role === 'dosen' ? 'dosen' : 'admin_panitia',
+        campus: campusNameById[campusId] || (role === 'dosen' ? 'Kampus belum diatur' : 'Lintas kampus'),
+        specialization: role === 'dosen' ? 'Pendamping akademik dan implementasi lapangan' : 'Monitoring, validasi, dan koordinasi lintas tim',
+        assignedTeams: role === 'dosen' && campusId ? scopedTeams.filter((team) => String(team.campus_id || '') === campusId).length : scopedTeams.length,
+        status: String(user.status || '').toLowerCase() === 'active' ? 'aktif' : 'perlu_penugasan',
+      };
+    });
 }
 
 function scopeTeamsForProfile_(profile, teams) {

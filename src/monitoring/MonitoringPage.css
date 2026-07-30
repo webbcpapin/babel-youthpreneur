@@ -219,6 +219,40 @@
   color: #92400e;
 }
 
+.list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.list-item {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.consent-row {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.consent-row input {
+  width: 18px;
+  min-height: 18px;
+  margin-top: 2px;
+}
+
 .demo-login-panel summary {
   cursor: pointer;
   font-weight: 900;

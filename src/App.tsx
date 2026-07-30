@@ -7,6 +7,8 @@ import DokumentasiPage from './pages/DokumentasiPage'
 import EvaluasiPage from './pages/EvaluasiPage'
 import HomePage from './pages/HomePage'
 import RencanaPage from './pages/RencanaPage'
+import RegisterMahasiswaPage from './pages/RegisterMahasiswaPage'
+import RegisterUmkmPage from './pages/RegisterUmkmPage'
 
 function UnauthorizedPage() {
   return <main className="auth-state-screen"><section className="panel"><p className="eyebrow">Akses dibatasi</p><h1>Anda tidak memiliki izin untuk membuka halaman ini.</h1><a className="monitoring-button auth-link-button" href="#/monitoring">Kembali ke dashboard</a></section></main>
@@ -21,6 +23,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register/mahasiswa" element={<RegisterMahasiswaPage />} />
+      <Route path="/register/umkm" element={<RegisterUmkmPage />} />
       <Route path="/evaluasi" element={<EvaluasiPage />} />
       <Route path="/rencana-2026" element={<RencanaPage />} />
       <Route path="/dokumentasi" element={<DokumentasiPage />} />

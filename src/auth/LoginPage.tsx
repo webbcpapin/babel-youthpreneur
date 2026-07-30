@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
-import { ShieldCheck } from 'lucide-react'
+import { LogIn } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { getGoogleOAuthClientId, hasGoogleBackend, type GoogleCredentialResponse } from '@/lib/monitoring-config'
-import { postAction } from '@/services/monitoring-api'
 import '@/monitoring/MonitoringPage.css'
 
 const GOOGLE_SCRIPT_ID = 'google-identity-services'
@@ -66,35 +65,11 @@ export default function LoginPage() {
   const { profile, loginWithGoogleCredential } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
-  const [requestedRole, setRequestedRole] = useState('mahasiswa')
-  const [institution, setInstitution] = useState('')
-  const [whatsapp, setWhatsapp] = useState('')
-  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const destination = (location.state as { from?: string } | null)?.from || '/monitoring'
 
   if (profile) return <Navigate to={destination} replace />
-
-  async function submitRegistration(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    setMessage('')
-    try {
-      const result = await postAction('registerAccount', { email, name, requested_role: requestedRole, institution, whatsapp, note })
-      setMessage(String(result.message || 'Registrasi diterima. Admin akan mengonfirmasi akun dan menetapkan role.'))
-      setName('')
-      setInstitution('')
-      setWhatsapp('')
-      setNote('')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Registrasi belum dapat dikirim.')
-    } finally {
-      setBusy(false)
-    }
-  }
 
   async function handleCredential(credential: string) {
     setBusy(true)
@@ -102,6 +77,8 @@ export default function LoginPage() {
     try {
       await loginWithGoogleCredential(credential)
       navigate(destination, { replace: true })
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Login Google belum berhasil.')
     } finally {
       setBusy(false)
     }
@@ -111,8 +88,8 @@ export default function LoginPage() {
     <main className="monitoring-login" style={{ backgroundImage: 'linear-gradient(120deg, rgba(15, 118, 110, 0.91), rgba(30, 64, 175, 0.82)), url("./images/banner-opening.png")' }}>
       <section className="login-panel auth-login-card">
         <p className="eyebrow">Babel Youthpreneur 2026</p>
-        <h1>Learning and Monitoring Platform</h1>
-        <p>Gunakan akun Google Anda. Setelah pendaftaran disetujui dan role ditetapkan, akses akan diberikan sesuai tanggung jawab program.</p>
+        <h1>Masuk Monitoring System</h1>
+        <p>Gunakan akun Google terverifikasi. Jika belum punya akses, pilih pendaftaran sesuai profil Anda.</p>
 
         <div className="login-check-card oauth-card">
           <div>
@@ -122,17 +99,19 @@ export default function LoginPage() {
           {hasGoogleBackend() ? <GoogleLoginButton onCredential={handleCredential} onError={setMessage} /> : <div className="login-message warning">Backend Google belum tersedia.</div>}
         </div>
 
-        <form className="register-card" onSubmit={submitRegistration}>
-          <div className="form-grid two">
-            <label>Nama lengkap <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Nama sesuai akun Google" /></label>
-            <label>Email Google <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@gmail.com" /></label>
-            <label>Daftar sebagai <select value={requestedRole} onChange={(event) => setRequestedRole(event.target.value)}><option value="mahasiswa">Mahasiswa</option><option value="dosen">Dosen</option><option value="umkm">UMKM</option><option value="juri">Juri</option><option value="admin_panitia">Panitia</option></select></label>
-            <label>Kampus/UMKM/Instansi <input value={institution} onChange={(event) => setInstitution(event.target.value)} placeholder="Contoh: UBB / DND Cake" /></label>
-            <label>WhatsApp <input value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} placeholder="08..." /></label>
-            <label>Catatan <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Tim, UMKM, atau kebutuhan akses" /></label>
+        <section className="register-card" aria-labelledby="registration-title">
+          <h3 id="registration-title">Pendaftaran Akun Baru</h3>
+          <p className="muted">Pilih jenis pendaftaran agar data masuk ke antrean verifikasi admin.</p>
+          <div className="button-row">
+            <Link className="monitoring-button primary" to="/register/mahasiswa">
+              <LogIn size={16} /> Daftar Mahasiswa
+            </Link>
+            <Link className="monitoring-button" to="/register/umkm">
+              Daftar UMKM
+            </Link>
           </div>
-          <button className="monitoring-button primary" disabled={busy}><ShieldCheck size={16} />{busy ? 'Memproses...' : 'Daftar Akun'}</button>
-        </form>
+        </section>
+        {busy && <div className="login-message" role="status">Memverifikasi akun Google...</div>}
         {message && <div className="login-message" role="status">{message}</div>}
         <Link className="monitoring-button auth-link-button" to="/">Kembali ke beranda</Link>
       </section>
