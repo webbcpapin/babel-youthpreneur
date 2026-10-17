@@ -15,12 +15,14 @@ function backend() {
   }
   let bootstrapCalls = 0
   let locked = false
+  const cache = new Map()
   const context = vm.createContext({
     console,
     PropertiesService: { getScriptProperties: () => ({ getProperty: () => '' }) },
     SpreadsheetApp: { openById: () => ({ getSheetByName: (name) => ({ name }) }) },
     LockService: { getScriptLock: () => ({ tryLock: () => { if (locked) return false; locked = true; return true }, releaseLock: () => { locked = false } }) },
     Utilities: { getUuid: randomUUID },
+    CacheService: { getScriptCache: () => ({ get: (key) => cache.get(key), put: (key, value) => cache.set(key, value) }) },
     ContentService: { MimeType: { JSON: 'application/json' }, createTextOutput: (text) => ({ text, setMimeType() { return JSON.parse(this.text) } }) },
   })
   vm.runInContext(source, context)
@@ -144,4 +146,56 @@ test('GET cannot trigger mutations', () => {
   const response = b.context.handleRequest_({ parameter: { action: 'submitWeeklyReport', ...report } }, 'GET')
   assert.equal(response.code, 'METHOD_NOT_ALLOWED')
   assert.equal(b.tables.WeeklyReports.length, 0)
+})
+
+test('all public registration profiles are queued without assigning access', () => {
+  for (const role of ['mahasiswa', 'umkm', 'kampus_viewer', 'juri', 'pimpinan_viewer']) {
+    const b = backend()
+    const response = b.context.handleRequest_({ parameter: { action: 'registerAccount' }, postData: { contents: JSON.stringify({
+      email: 'new@example.test', name: 'New applicant', requested_role: role,
+      institution: 'Institution', whatsapp: '0800000000', data_consent: true,
+    }) } }, 'POST')
+    assert.equal(response.ok, true, role)
+    assert.equal(response.status, 'pending_admin_review')
+    assert.equal(b.tables.Registrations[0].requested_role, role)
+    const user = b.tables.AppUsers.find((item) => item.email === 'new@example.test')
+    assert.equal(user.status, 'pending')
+    assert.equal(user.role, '')
+    assert.equal(user.campus_id, '')
+    assert.equal(b.tables.Sessions.length, 1)
+    assert.equal(b.bootstrapCalls(), 0)
+  }
+})
+
+test('new registrations do not accept self-assigned super admin or missing consent', () => {
+  for (const patch of [{ requested_role: 'super_admin' }, { requested_role: 'admin' }, { requested_role: 'unknown' }, { data_consent: false }]) {
+    const b = backend()
+    const response = b.context.registerAccount_({ email: 'new@example.test', name: 'Applicant', requested_role: 'juri', data_consent: true, ...patch })
+    assert.equal(response.ok, false)
+    assert.equal(b.tables.Registrations?.length ?? 0, 0)
+    assert.equal(b.tables.AppUsers.length, 1)
+  }
+})
+
+test('registration cannot change an existing active user role', () => {
+  const b = backend()
+  const response = b.context.registerAccount_({ email: 'student@example.test', name: 'Student', requested_role: 'juri', data_consent: true })
+  assert.equal(response.status, 'active')
+  assert.equal(b.tables.AppUsers[0].role, 'mahasiswa')
+  assert.equal(b.tables.Registrations?.length ?? 0, 0)
+})
+
+test('approved university viewer stays campus-scoped and Kemenkeu viewer cannot write or score', () => {
+  for (const role of ['kampus_viewer', 'pimpinan_viewer']) {
+    const b = backend()
+    Object.assign(b.tables.AppUsers[0], { role, campus_id: 'c1' })
+    const data = b.context.getData_({ session_token: 'token' })
+    assert.equal(data.teams.length, role === 'kampus_viewer' ? 1 : 2)
+    assert.equal(b.context.submitWeeklyReport_(report).ok, false)
+    assert.equal(b.context.submitOutput_({ ...report, type: 'Catalog', title: 'Test' }).ok, false)
+    assert.equal(b.context.submitScore_({ session_token: 'token', team_id: 't1', category: 'test', score: 90 }).ok, false)
+    assert.equal(b.tables.WeeklyReports.length, 0)
+    assert.equal(b.tables.Outputs.length, 0)
+    assert.equal(b.tables.ChallengeScores.length, 0)
+  }
 })

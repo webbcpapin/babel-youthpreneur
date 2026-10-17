@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
-import { LogIn } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { loadGoogleIdentity } from '@/auth/google-identity'
+import { REGISTRATION_PROFILES } from '@/auth/registration-profiles'
 import { getGoogleOAuthClientId, hasGoogleBackend, type GoogleCredentialResponse } from '@/lib/monitoring-config'
 import '@/monitoring/MonitoringPage.css'
 
@@ -95,14 +95,14 @@ export default function LoginPage() {
         <section className="register-card" aria-labelledby="registration-title">
           <h3 id="registration-title">Pendaftaran Akun Baru</h3>
           <p className="muted">Pilih jenis pendaftaran agar data masuk ke antrean verifikasi admin.</p>
-          <div className="button-row">
-            <Link className="monitoring-button primary" to="/register/mahasiswa">
-              <LogIn size={16} /> Daftar Mahasiswa
-            </Link>
-            <Link className="monitoring-button" to="/register/umkm">
-              Daftar UMKM
-            </Link>
+          <div className="registration-options">
+            {Object.entries(REGISTRATION_PROFILES).map(([path, registration]) => (
+              <Link className="monitoring-button registration-option" key={path} to={`/register/${path}`}>
+                Daftar {registration.label}
+              </Link>
+            ))}
           </div>
+          <small>Pendaftaran bukan persetujuan akses. Seluruh akun diverifikasi oleh admin terlebih dahulu.</small>
         </section>
         {busy && <div className="login-message" role="status">Memverifikasi akun Google...</div>}
         {message && <div className="login-message" role="status">{message}</div>}

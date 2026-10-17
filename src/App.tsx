@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { ADMIN_ROLES, INSTRUCTOR_ROLES, STUDENT_ROLES } from './auth/auth-types'
 import LoginPage from './auth/LoginPage'
+import RegistrationForm from './auth/RegistrationForm'
+import { REGISTRATION_PROFILES } from './auth/registration-profiles'
 import { ProtectedRoute, RoleBasedRoute } from './auth/RouteGuards'
 import MonitoringPage from './monitoring/MonitoringPage'
 import DokumentasiPage from './pages/DokumentasiPage'
@@ -25,6 +27,9 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register/mahasiswa" element={<RegisterMahasiswaPage />} />
       <Route path="/register/umkm" element={<RegisterUmkmPage />} />
+      {(['universitas', 'juri', 'kemenkeu'] as const).map((kind) => (
+        <Route key={kind} path={`/register/${kind}`} element={<RegistrationForm key={kind} profile={REGISTRATION_PROFILES[kind]} />} />
+      ))}
       <Route path="/evaluasi" element={<EvaluasiPage />} />
       <Route path="/rencana-2026" element={<RencanaPage />} />
       <Route path="/dokumentasi" element={<DokumentasiPage />} />

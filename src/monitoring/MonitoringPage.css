@@ -158,6 +158,40 @@
   gap: 12px;
 }
 
+.registration-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.registration-option {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
+
+.registration-option:focus-visible {
+  outline: 3px solid #0f766e;
+  outline-offset: 3px;
+}
+
+.registration-fields {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.register-card .registration-access-note {
+  margin: 0;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
 .login-check-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -858,6 +892,10 @@
 }
 
 @media (max-width: 560px) {
+  .registration-options {
+    grid-template-columns: 1fr;
+  }
+
   .monitoring-main,
   .monitoring-sidebar,
   .monitoring-login {

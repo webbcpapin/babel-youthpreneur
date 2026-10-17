@@ -1,6 +1,7 @@
 import RegistrationForm from '@/auth/RegistrationForm'
+import { REGISTRATION_PROFILES } from '@/auth/registration-profiles'
 import '@/monitoring/MonitoringPage.css'
 
 export default function RegisterUmkmPage() {
-  return <RegistrationForm role="umkm" title="Pendaftaran UMKM" subtitle="Lengkapi data UMKM agar panitia dapat memetakan kebutuhan pendampingan dan memverifikasi akses." />
+  return <RegistrationForm profile={REGISTRATION_PROFILES.umkm} />
 }
