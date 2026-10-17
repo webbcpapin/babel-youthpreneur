@@ -74,3 +74,34 @@ For scoped access, also set `team_id`, `campus_id`, or `umkm_id` as appropriate.
 3. Run `npm run build`.
 4. Deploy to Vercel.
 5. Complete the verification checklist on `https://babelyouthpreneur.id`.
+
+## Login and monitoring reliability update
+
+The 17 October 2026 update keeps Google Identity Services and the existing
+spreadsheet. Deploy the Apps Script changes **before** deploying the frontend.
+
+- Normal login, session restoration, monitoring reads, and submissions no longer
+  call `bootstrap_`. Run `setupMonitoring` from the Apps Script editor if the
+  spreadsheet has not been initialized.
+- Setup creates missing tabs and appends missing headers; existing records are
+  retained. It inserts demo records only when the Script Property
+  `ENABLE_DEMO_SEED` is explicitly `true`. Leave that property absent in production.
+- The `WeeklyReports` and `Outputs` schemas add `request_id`. Setup appends this
+  column without rewriting existing data. Repeating an unchanged request with the
+  same identifier and user returns the original row under a script lock.
+- Private API actions use POST. `?action=test` remains a public, read-only health
+  check. The old GET examples for private endpoints are obsolete.
+- Sessions rejected by the backend have a `code` of `SESSION_REQUIRED`,
+  `SESSION_EXPIRED`, or `ACCOUNT_DISABLED`. The frontend clears only the session
+  corresponding to the failed request. Network errors do not masquerade as expiry.
+- Report and output counters now count stored records rather than the older
+  manually seeded `Teams.reports` and `Teams.outputs` values.
+- The report form has an explicit week, activity, progress, obstacles, next plan,
+  and evidence link. An unsuccessful save leaves the form contents on screen.
+  Confirmed rows use the server's ID. These are not offline drafts: navigating
+  away from an unsaved form or refreshing can still discard its contents.
+
+Local regression verification is `npm test`; type checking and bundling are
+`npm run build`. Run the production checklist with a dedicated test account and
+test team after both deployments. Include a failed connection, unchanged retry,
+refresh, expired session, and out-of-scope team submission.

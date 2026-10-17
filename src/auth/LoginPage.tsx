@@ -1,35 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { LogIn } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { loadGoogleIdentity } from '@/auth/google-identity'
 import { getGoogleOAuthClientId, hasGoogleBackend, type GoogleCredentialResponse } from '@/lib/monitoring-config'
 import '@/monitoring/MonitoringPage.css'
 
-const GOOGLE_SCRIPT_ID = 'google-identity-services'
-
-function loadGoogleIdentity(): Promise<void> {
-  if (window.google?.accounts.id) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    const existing = document.getElementById(GOOGLE_SCRIPT_ID) as HTMLScriptElement | null
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener('error', () => reject(new Error('Google Identity tidak dapat dimuat.')), { once: true })
-      return
-    }
-    const script = document.createElement('script')
-    script.id = GOOGLE_SCRIPT_ID
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('Google Identity tidak dapat dimuat.'))
-    document.head.appendChild(script)
-  })
-}
-
-function GoogleLoginButton({ onCredential, onError }: { onCredential: (credential: string) => Promise<void>; onError: (message: string) => void }) {
+function GoogleLoginButton({ onCredential, onError, disabled }: { onCredential: (credential: string) => Promise<void>; onError: (message: string) => void; disabled: boolean }) {
   const mountRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const clientId = getGoogleOAuthClientId()
 
   useEffect(() => {
@@ -53,12 +34,20 @@ function GoogleLoginButton({ onCredential, onError }: { onCredential: (credentia
         window.google.accounts.id.renderButton(mountRef.current, { theme: 'outline', size: 'large', text: 'continue_with', width: 300 })
         setReady(true)
       })
-      .catch((error: unknown) => onError(error instanceof Error ? error.message : 'Google Identity tidak tersedia.'))
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setFailed(true)
+        onError(error instanceof Error ? error.message : 'Google Identity tidak tersedia.')
+      })
     return () => { cancelled = true }
-  }, [clientId, onCredential, onError])
+  }, [clientId, onCredential, onError, attempt])
 
   if (!clientId) return <div className="login-message warning">Login Google belum diaktifkan. Admin perlu mengisi Google OAuth Client ID pada konfigurasi produksi.</div>
-  return <div className="google-signin-wrap" aria-busy={!ready} ref={mountRef} />
+  return <div aria-busy={disabled || (!ready && !failed)}>
+    <div className="google-signin-wrap" inert={disabled} ref={mountRef} />
+    {!ready && !failed && <p role="status">Menyiapkan tombol Google...</p>}
+    {failed && <button className="monitoring-button" onClick={() => { setFailed(false); setAttempt((value) => value + 1) }}>Coba muat ulang tombol Google</button>}
+  </div>
 }
 
 export default function LoginPage() {
@@ -67,11 +56,12 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const inFlight = useRef(false)
   const destination = (location.state as { from?: string } | null)?.from || '/monitoring'
 
-  if (profile) return <Navigate to={destination} replace />
-
-  async function handleCredential(credential: string) {
+  const handleCredential = useCallback(async (credential: string) => {
+    if (inFlight.current) return
+    inFlight.current = true
     setBusy(true)
     setMessage('')
     try {
@@ -80,9 +70,12 @@ export default function LoginPage() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Login Google belum berhasil.')
     } finally {
+      inFlight.current = false
       setBusy(false)
     }
-  }
+  }, [loginWithGoogleCredential, navigate, destination])
+
+  if (profile) return <Navigate to={destination} replace />
 
   return (
     <main className="monitoring-login" style={{ backgroundImage: 'linear-gradient(120deg, rgba(15, 118, 110, 0.91), rgba(30, 64, 175, 0.82)), url("./images/banner-opening.png")' }}>
@@ -96,7 +89,7 @@ export default function LoginPage() {
             <strong>Masuk dengan Google</strong>
             <span>Identitas Google diverifikasi oleh backend sebelum role dan data program dibuka.</span>
           </div>
-          {hasGoogleBackend() ? <GoogleLoginButton onCredential={handleCredential} onError={setMessage} /> : <div className="login-message warning">Backend Google belum tersedia.</div>}
+          {hasGoogleBackend() ? <GoogleLoginButton onCredential={handleCredential} onError={setMessage} disabled={busy} /> : <div className="login-message warning">Layanan login belum tersedia. Hubungi panitia.</div>}
         </div>
 
         <section className="register-card" aria-labelledby="registration-title">

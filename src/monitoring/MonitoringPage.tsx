@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   Bell,
   BookOpen,
@@ -15,8 +15,10 @@ import {
   UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { readStoredSession } from '@/auth/session-storage'
 import { getMonitoringConfig, hasGoogleBackend } from '@/lib/monitoring-config'
-import { getPublicAction, postAction } from '@/services/monitoring-api'
+import { postAction } from '@/services/monitoring-api'
+import { prepareSubmission, saveSubmission, type SubmissionAttempt } from './submission'
 import './MonitoringPage.css'
 
 type Role = 'admin' | 'dosen' | 'mahasiswa' | 'umkm' | 'juri' | 'viewer'
@@ -64,6 +66,10 @@ type WeeklyReport = {
   week: number
   activity: string
   progress: string
+  obstacles?: string
+  nextPlan?: string
+  driveLink?: string
+  publicationLink?: string
   validation: 'pending' | 'validated' | 'revision'
 }
 
@@ -75,6 +81,7 @@ type OutputItem = {
   status: OutputStatus
   linkStatus: 'valid format' | 'perlu dicek' | 'kosong' | 'restricted' | 'perlu revisi'
   umkmFeedback: string
+  driveLink?: string
 }
 
 type Score = {
@@ -104,163 +111,11 @@ type MonitoringData = {
 }
 
 type BackendStatus = {
-  mode: 'local' | 'google'
+  mode: 'loading' | 'error' | 'google'
   message: string
   sheetId?: string
 }
 
-const teams: Team[] = [
-  {
-    id: 'g1',
-    name: 'Kelompok 1',
-    campus: 'Universitas Bangka Belitung',
-    umkm: 'Madu RR Arisi',
-    members: ['Muhammad Faiq Elfaruq', 'Umar Dzaki Elfatih', 'Maulana Malik Ibrahim'],
-    umkmCategory: 'Madu dan olahan pangan',
-    umkmOwner: 'Arisi',
-    umkmLocation: 'Bangka Belitung',
-    progress: 78,
-    status: 'aman',
-    reports: 4,
-    outputs: 4,
-    attendance: 92,
-  },
-  {
-    id: 'g2',
-    name: 'Kelompok 2',
-    campus: 'Universitas Anak Bangsa',
-    umkm: 'JJ Catering',
-    members: ['Amaliya Putri Nurisma', 'Valerin Dia Nova', 'Nurul Apni'],
-    umkmCategory: 'Olahan makanan',
-    umkmOwner: 'Ramon',
-    umkmLocation: 'Kota Pangkalpinang',
-    progress: 72,
-    status: 'aman',
-    reports: 4,
-    outputs: 3,
-    attendance: 88,
-  },
-  {
-    id: 'g3',
-    name: 'Kelompok 3',
-    campus: 'Universitas Pertiba',
-    umkm: 'DND Cake & Cookies by Desi',
-    members: ['Liviana', 'Olyvia Ayu Poernama', 'Rasya Agustin'],
-    umkmCategory: 'Olahan makanan',
-    umkmOwner: 'Desi Yulita',
-    umkmLocation: 'Kelurahan Tuatunu Indah, Kota Pangkalpinang',
-    progress: 83,
-    status: 'aman',
-    reports: 4,
-    outputs: 5,
-    attendance: 94,
-  },
-  {
-    id: 'g4',
-    name: 'Kelompok 4',
-    campus: 'Universitas Pertiba',
-    umkm: 'Deshanda Craft',
-    members: ['Aprilian Anggara', 'Iqbal Abdillah', 'Abizar'],
-    umkmCategory: 'Kerajinan',
-    umkmOwner: 'Eva Deswanti',
-    umkmLocation: 'Kota Pangkalpinang',
-    progress: 64,
-    status: 'perlu_perhatian',
-    reports: 3,
-    outputs: 2,
-    attendance: 76,
-  },
-  {
-    id: 'g5',
-    name: 'Kelompok 5',
-    campus: 'Universitas Bangka Belitung',
-    umkm: "Kamiz Choc's",
-    members: ['Angelia Okta Ferani', 'Kevin Setiawan', 'Salma Azzahra'],
-    umkmCategory: 'Olahan cokelat',
-    umkmOwner: 'Hamdan',
-    umkmLocation: 'Kota Pangkalpinang',
-    progress: 86,
-    status: 'aman',
-    reports: 4,
-    outputs: 5,
-    attendance: 90,
-  },
-  {
-    id: 'g6',
-    name: 'Kelompok 6',
-    campus: 'Universitas Muhammadiyah Bangka Belitung',
-    umkm: 'Keripik Cumi Nina',
-    members: ['Meizha Hadzami', 'Zalva Rosemayini Putri Rais', 'Maharani Fatiya Azzahra'],
-    umkmCategory: 'Olahan makanan',
-    umkmOwner: 'Nafa',
-    umkmLocation: 'Kabupaten Bangka',
-    progress: 68,
-    status: 'aman',
-    reports: 3,
-    outputs: 3,
-    attendance: 84,
-  },
-  {
-    id: 'g7',
-    name: 'Kelompok 7',
-    campus: 'IAIN SAS Bangka Belitung',
-    umkm: 'Rumah Makan Raja Lele',
-    members: ['Sandri', 'Aulia Rohimah', 'Sundari'],
-    umkmCategory: 'Olahan makanan',
-    umkmOwner: 'Pipit',
-    umkmLocation: 'Jl Bina Marga, Kota Pangkalpinang',
-    progress: 73,
-    status: 'aman',
-    reports: 4,
-    outputs: 3,
-    attendance: 86,
-  },
-  {
-    id: 'g8',
-    name: 'Kelompok 8',
-    campus: 'IAIN SAS Bangka Belitung',
-    umkm: '3 Shesca Decoupage',
-    members: ['Jordi', 'Miftahul', 'Novita Aprianti'],
-    umkmCategory: 'Kerajinan',
-    umkmOwner: 'Shesca',
-    umkmLocation: 'Bangka Belitung',
-    progress: 52,
-    status: 'perlu_perhatian',
-    reports: 2,
-    outputs: 2,
-    attendance: 72,
-  },
-  {
-    id: 'g9',
-    name: 'Kelompok 9',
-    campus: 'Universitas Muhammadiyah Bangka Belitung',
-    umkm: 'Central Charcoal Babelindo',
-    members: ['Muhammad Muda Wali', 'Haruku Maulana', 'Iqmal Prakoso'],
-    umkmCategory: 'Daun ketapang dan leaf litter',
-    umkmOwner: 'Lukman',
-    umkmLocation: 'Kota Pangkalpinang',
-    progress: 59,
-    status: 'perlu_perhatian',
-    reports: 2,
-    outputs: 2,
-    attendance: 74,
-  },
-  {
-    id: 'g10',
-    name: 'Kelompok 10',
-    campus: 'Universitas Anak Bangsa',
-    umkm: 'Deviz Indo Bangka',
-    members: ['Iis Kholifah', 'Danil Eko Saputra', 'Gustia'],
-    umkmCategory: 'Olahan makanan',
-    umkmOwner: 'Yuyun',
-    umkmLocation: 'Kota Pangkalpinang',
-    progress: 28,
-    status: 'kritis',
-    reports: 1,
-    outputs: 1,
-    attendance: 58,
-  },
-]
 
 const learningModules: LearningModule[] = [
   {
@@ -305,43 +160,8 @@ const learningModules: LearningModule[] = [
   },
 ]
 
-const reports: WeeklyReport[] = [
-  { id: 'r1', teamId: 'g3', week: 1, activity: 'Profil DND Cake & Cookies selesai.', progress: 'Kebutuhan branding dan kanal publikasi dipetakan.', validation: 'validated' },
-  { id: 'r2', teamId: 'g3', week: 2, activity: 'Produksi konten awal.', progress: 'Kalender konten minggu pertama selesai.', validation: 'validated' },
-  { id: 'r3', teamId: 'g4', week: 3, activity: 'Koordinasi ulang dengan Deshanda Craft.', progress: 'Output terlambat karena bahan foto belum lengkap.', validation: 'revision' },
-  { id: 'r4', teamId: 'g10', week: 3, activity: 'Belum ada kunjungan lanjutan ke Deviz Indo Bangka.', progress: 'Perlu intervensi dosen dan panitia.', validation: 'pending' },
-  { id: 'r5', teamId: 'g6', week: 2, activity: 'Pemetaan produk Keripik Cumi Nina.', progress: 'Draft konten edukasi produk sudah dibuat.', validation: 'validated' },
-  { id: 'r6', teamId: 'g9', week: 2, activity: 'Diskusi kebutuhan Central Charcoal Babelindo.', progress: 'Konten product knowledge masih perlu revisi.', validation: 'revision' },
-]
-
-const outputs: OutputItem[] = [
-  { id: 'o1', teamId: 'g3', type: 'Kalender konten', title: 'Kalender Konten DND Cake', status: 'approved', linkStatus: 'valid format', umkmFeedback: 'Sudah bisa dipakai' },
-  { id: 'o2', teamId: 'g3', type: 'Konten media sosial', title: 'Paket 9 Caption Cookies', status: 'submitted', linkStatus: 'perlu dicek', umkmFeedback: 'Menunggu review' },
-  { id: 'o3', teamId: 'g2', type: 'Video pendek', title: 'Video Produk JJ Catering', status: 'revision', linkStatus: 'valid format', umkmFeedback: 'Perlu revisi' },
-  { id: 'o4', teamId: 'g1', type: 'Landing page', title: 'Katalog Madu RR Arisi', status: 'submitted', linkStatus: 'valid format', umkmFeedback: 'Perlu dicek' },
-  { id: 'o5', teamId: 'g5', type: 'Katalog digital', title: 'Katalog Kamiz Choc', status: 'approved', linkStatus: 'valid format', umkmFeedback: 'Sesuai kebutuhan' },
-  { id: 'o6', teamId: 'g10', type: 'Konten media sosial', title: 'Konten Deviz Indo Bangka', status: 'draft', linkStatus: 'kosong', umkmFeedback: 'Belum bisa dipakai' },
-  { id: 'o7', teamId: 'g7', type: 'Video pendek', title: 'Video Rumah Makan Raja Lele', status: 'submitted', linkStatus: 'perlu dicek', umkmFeedback: 'Menunggu review' },
-]
-
-const scores: Score[] = [
-  { teamId: 'g5', category: 'Best Product Campaign', score: 88, note: 'Kuat pada visual dan pesan produk.' },
-  { teamId: 'g3', category: 'Best Content Strategy', score: 84, note: 'Konsisten dan mudah diterapkan UMKM.' },
-  { teamId: 'g6', category: 'Best Digital Branding', score: 80, note: 'Butuh penguatan dampak awal.' },
-  { teamId: 'g2', category: 'Best Social Media Growth', score: 72, note: 'Output perlu dirapikan.' },
-  { teamId: 'g10', category: 'Best Website or Landing Page', score: 61, note: 'Belum siap dinilai final.' },
-]
-
-const localData: MonitoringData = {
-  teams,
-  reports,
-  outputs,
-  scores,
-  mentors: [],
-}
 
 const emptyMonitoringData: MonitoringData = { teams: [], reports: [], outputs: [], scores: [], mentors: [] }
-const initialMonitoringData = import.meta.env.DEV ? localData : emptyMonitoringData
 
 const navItems: Array<{ key: View; label: string; icon: typeof Gauge }> = [
   { key: 'dashboard', label: 'Dashboard', icon: Gauge },
@@ -381,16 +201,8 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
   URL.revokeObjectURL(url)
 }
 
-function sessionToken() {
-  try {
-    return JSON.parse(sessionStorage.getItem('byp.session.v1') || '{}').token as string | undefined
-  } catch {
-    return undefined
-  }
-}
-
 async function fetchGoogleData(): Promise<MonitoringData> {
-  const token = sessionToken()
+  const token = readStoredSession()?.token
   if (!token) throw new Error('Sesi login tidak tersedia.')
   const payload = await postAction('getData', { session_token: token })
   return {
@@ -400,15 +212,6 @@ async function fetchGoogleData(): Promise<MonitoringData> {
     scores: (payload.scores as Score[] | undefined) ?? [],
     mentors: (payload.mentors as Mentor[] | undefined) ?? [],
   }
-}
-
-async function getGoogleAction(action: string) {
-  return getPublicAction(action)
-}
-
-async function postGoogleAction(action: string, payload: Record<string, string | number | undefined>) {
-  const token = sessionToken()
-  return postAction(action, token ? { ...payload, session_token: token } : payload)
 }
 
 function getScopedTeams(_profile: Profile, sourceTeams: Team[]) {
@@ -426,9 +229,10 @@ function MonitoringPage() {
   const { profile: authProfile, logout } = useAuth()
   const [view, setView] = useState<View>('dashboard')
   const [query, setQuery] = useState('')
-  const [data, setData] = useState<MonitoringData>(initialMonitoringData)
+  const [data, setData] = useState<MonitoringData>(emptyMonitoringData)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(() => ({
-    mode: hasGoogleBackend() ? 'google' : 'local',
+    mode: hasGoogleBackend() ? 'loading' : 'error',
     message: hasGoogleBackend() ? 'Menghubungkan ke Google Sheet...' : 'Backend Google belum dikonfigurasi.',
     sheetId: getMonitoringConfig().sheetId,
   }))
@@ -442,43 +246,17 @@ function MonitoringPage() {
 
   useEffect(() => {
     let cancelled = false
-    if (!hasGoogleBackend()) return
-
-    getGoogleAction('test')
-      .then(() => {
-        if (cancelled) return
-        setBackendStatus({
-          mode: 'google',
-          message: 'Google Sheet dan Drive tersambung.',
-          sheetId: getMonitoringConfig().sheetId,
-        })
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setBackendStatus({
-          mode: 'local',
-          message: error instanceof Error ? error.message : 'Gagal menghubungkan Google backend.',
-          sheetId: getMonitoringConfig().sheetId,
-        })
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-
     if (!hasGoogleBackend() || !authProfile) return
     fetchGoogleData()
       .then((nextData) => {
-        if (!cancelled) setData(nextData)
+        if (cancelled) return
+        setData(nextData)
+        setBackendStatus({ mode: 'google', message: 'Data monitoring berhasil dimuat.', sheetId: getMonitoringConfig().sheetId })
       })
       .catch((error: unknown) => {
         if (cancelled) return
         setBackendStatus({
-          mode: 'local',
+          mode: 'error',
           message: error instanceof Error ? error.message : 'Data monitoring belum dapat dimuat.',
           sheetId: getMonitoringConfig().sheetId,
         })
@@ -487,7 +265,7 @@ function MonitoringPage() {
     return () => {
       cancelled = true
     }
-  }, [authProfile])
+  }, [authProfile, loadAttempt])
 
   const scopedTeams = useMemo(() => {
     const base = profile ? getScopedTeams(profile, data.teams) : []
@@ -555,6 +333,7 @@ function MonitoringPage() {
           </header>
 
           <BackendNotice status={backendStatus} />
+          {backendStatus.mode === 'error' && <button className="monitoring-button" onClick={() => { setBackendStatus((current) => ({ ...current, mode: 'loading', message: 'Memuat ulang data monitoring...' })); setLoadAttempt((value) => value + 1) }}>Coba muat ulang data</button>}
 
           {view === 'dashboard' && <Dashboard profile={profile} teams={scopedTeams} reports={data.reports} outputs={data.outputs} />}
           {view === 'learning' && <LearningCenter profile={profile} />}
@@ -573,7 +352,7 @@ function MonitoringPage() {
 function BackendNotice({ status }: { status: BackendStatus }) {
   return (
     <div className={status.mode === 'google' ? 'backend-notice connected' : 'backend-notice local'}>
-      <strong>{status.mode === 'google' ? 'Google backend aktif' : 'Mode lokal'}</strong>
+      <strong>{status.mode === 'google' ? 'Data terhubung' : status.mode === 'loading' ? 'Memuat data' : 'Data belum dapat dimuat'}</strong>
       <span>{status.message}</span>
       {status.sheetId && <a href={`https://docs.google.com/spreadsheets/d/${status.sheetId}/edit`} target="_blank" rel="noreferrer">Buka Google Sheet</a>}
     </div>
@@ -788,43 +567,61 @@ function WeeklyMonitoring({ profile, teams: visibleTeams, reports: activeReports
   const [activity, setActivity] = useState('')
   const [progress, setProgress] = useState('')
   const [message, setMessage] = useState('')
+  const [week, setWeek] = useState(1)
+  const [obstacles, setObstacles] = useState('')
+  const [nextPlan, setNextPlan] = useState('')
+  const [driveLink, setDriveLink] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const inFlight = useRef(false)
+  const attempt = useRef<SubmissionAttempt | null>(null)
+  const selectedTeamId = teamId || visibleTeams[0]?.id || ''
 
   async function submitWeeklyReport() {
-    const targetTeam = visibleTeams.find((team) => team.id === teamId) ?? visibleTeams[0]
-    if (!targetTeam || !activity.trim() || !progress.trim()) {
+    if (inFlight.current) return
+    const targetTeam = visibleTeams.find((team) => team.id === selectedTeamId)
+    if (!targetTeam || !activity.trim() || !progress.trim() || !Number.isInteger(week) || week < 1 || week > 52) {
       setMessage('Isi tim, aktivitas, dan progress sebelum mengirim laporan.')
       return
     }
 
-    const report: WeeklyReport = {
-      id: `local-report-${Date.now()}`,
-      teamId: targetTeam.id,
-      week: Math.max(1, targetTeam.reports + 1),
+    const payload = {
+      team_id: targetTeam.id,
+      week,
       activity: activity.trim(),
       progress: progress.trim(),
-      validation: 'pending',
+      obstacles: obstacles.trim(),
+      next_plan: nextPlan.trim(),
+      drive_link: driveLink.trim(),
     }
-
+    attempt.current = prepareSubmission(payload, attempt.current)
+    inFlight.current = true
+    setIsSubmitting(true)
+    setMessage('')
     try {
-      await postGoogleAction('submitWeeklyReport', {
-        team_id: targetTeam.id,
-        week: report.week,
-        activity: report.activity,
-        progress: report.progress,
-        email: profile.name,
+      const row = await saveSubmission('submitWeeklyReport', payload, attempt.current.id)
+      const report: WeeklyReport = {
+        id: row.id, teamId: row.team_id, week: Number(row.week),
+        activity: String(row.activity ?? ''), progress: String(row.progress ?? ''),
+        obstacles: String(row.obstacles ?? ''), nextPlan: String(row.next_plan ?? ''),
+        driveLink: String(row.drive_link ?? ''), validation: String(row.validation ?? 'pending') as WeeklyReport['validation'],
+      }
+      setData((current) => {
+        const reports = [report, ...current.reports.filter((item) => item.id !== report.id)]
+        return { ...current, reports, teams: current.teams.map((team) => team.id === targetTeam.id ? { ...team, reports: reports.filter((item) => item.teamId === team.id).length } : team) }
       })
+      attempt.current = null
+      setActivity('')
+      setProgress('')
+      setObstacles('')
+      setNextPlan('')
+      setDriveLink('')
       setMessage('Laporan berhasil dikirim ke Google Sheet.')
-    } catch {
-      setMessage('Laporan tersimpan di tampilan lokal. Cek kembali endpoint Google Sheet jika ingin permanen.')
+    } catch (error) {
+      setMessage(`${error instanceof Error ? error.message : 'Pengiriman belum dapat dikonfirmasi.'} Isian Anda tetap tersedia di halaman ini.`)
+    } finally {
+      inFlight.current = false
+      setIsSubmitting(false)
     }
-
-    setData((current) => ({
-      ...current,
-      reports: [report, ...current.reports],
-      teams: current.teams.map((team) => team.id === targetTeam.id ? { ...team, reports: team.reports + 1 } : team),
-    }))
-    setActivity('')
-    setProgress('')
   }
 
   return (
@@ -833,30 +630,35 @@ function WeeklyMonitoring({ profile, teams: visibleTeams, reports: activeReports
         <section className="panel">
           <div className="panel-title">
             <h3>Input Laporan Mingguan</h3>
-            <span className="muted">Stepper ringkas</span>
+            <span className="muted">Pilih minggu dan lampirkan bukti</span>
           </div>
-          <div className="stepper-grid">
+          <div className="stepper-grid" inert={isSubmitting}>
             <article className="form-step">
               <label>
                 Tim
-                <select value={teamId} onChange={(event) => setTeamId(event.target.value)}>
+                <select value={selectedTeamId} onChange={(event) => setTeamId(event.target.value)}>
+                  <option value="">Pilih tim</option>
                   {visibleTeams.map((team) => <option value={team.id} key={team.id}>{team.name}</option>)}
                 </select>
               </label>
+              <label>Minggu laporan <input type="number" min={1} max={52} value={week} onChange={(event) => setWeek(Number(event.target.value))} /></label>
               <label>
                 Aktivitas minggu ini
-                <textarea value={activity} onChange={(event) => setActivity(event.target.value)} placeholder="Kegiatan, kunjungan, diskusi, produksi konten..." />
+                <textarea maxLength={10000} value={activity} onChange={(event) => setActivity(event.target.value)} placeholder="Kegiatan, kunjungan, diskusi, produksi konten..." />
               </label>
             </article>
             <article className="form-step">
               <label>
-                Progress dan link
-                <textarea value={progress} onChange={(event) => setProgress(event.target.value)} placeholder="Progress output, kendala, rencana berikutnya, link Drive..." />
+                Progres output
+                <textarea maxLength={10000} value={progress} onChange={(event) => setProgress(event.target.value)} placeholder="Hasil yang sudah diselesaikan minggu ini..." />
               </label>
-              <button className="monitoring-button primary" onClick={submitWeeklyReport}>Review dan Kirim</button>
-              {message && <span className="form-message">{message}</span>}
+              <label>Kendala <textarea value={obstacles} onChange={(event) => setObstacles(event.target.value)} /></label>
+              <label>Rencana tindak lanjut <textarea value={nextPlan} onChange={(event) => setNextPlan(event.target.value)} /></label>
+              <label>Link bukti <input type="url" value={driveLink} onChange={(event) => setDriveLink(event.target.value)} placeholder="https://drive.google.com/..." /></label>
+              <button className="monitoring-button primary" disabled={isSubmitting || !selectedTeamId} onClick={submitWeeklyReport}>{isSubmitting ? 'Mengirim...' : 'Kirim laporan'}</button>
             </article>
           </div>
+          {message && <p className="form-message" role="status">{message}</p>}
         </section>
       )}
       <section className="panel">
@@ -873,6 +675,9 @@ function WeeklyMonitoring({ profile, teams: visibleTeams, reports: activeReports
                   <strong>{team?.name ?? '-'} - Minggu {report.week}</strong>
                   <p>{report.activity}</p>
                   <span>{report.progress}</span>
+                  {report.obstacles && <p>Kendala: {report.obstacles}</p>}
+                  {report.nextPlan && <p>Tindak lanjut: {report.nextPlan}</p>}
+                  {/^https?:\/\//i.test(report.driveLink ?? '') && <a href={report.driveLink} target="_blank" rel="noreferrer">Buka bukti</a>}
                 </div>
                 <span className={`status-pill ${report.validation}`}>{statusLabel(report.validation)}</span>
               </article>
@@ -891,6 +696,10 @@ function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, s
   const [title, setTitle] = useState('')
   const [driveLink, setDriveLink] = useState('')
   const [message, setMessage] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const inFlight = useRef(false)
+  const attempt = useRef<SubmissionAttempt | null>(null)
+  const selectedTeamId = teamId || visibleTeams[0]?.id || ''
   const columns: Array<{ key: OutputStatus; label: string }> = [
     { key: 'draft', label: 'Belum dikirim' },
     { key: 'submitted', label: 'Perlu validasi' },
@@ -899,43 +708,46 @@ function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, s
   ]
 
   async function submitOutput() {
-    const targetTeam = visibleTeams.find((team) => team.id === teamId) ?? visibleTeams[0]
+    if (inFlight.current) return
+    const targetTeam = visibleTeams.find((team) => team.id === selectedTeamId)
     if (!targetTeam || !title.trim()) {
       setMessage('Pilih tim dan isi judul output sebelum menyimpan.')
       return
     }
 
     const cleanLink = driveLink.trim()
-    const output: OutputItem = {
-      id: `local-output-${Date.now()}`,
-      teamId: targetTeam.id,
+    const payload = {
+      team_id: targetTeam.id,
       type,
       title: title.trim(),
-      status: 'submitted',
-      linkStatus: cleanLink ? 'perlu dicek' : 'kosong',
-      umkmFeedback: 'Menunggu review',
+      drive_link: cleanLink,
     }
-
+    attempt.current = prepareSubmission(payload, attempt.current)
+    inFlight.current = true
+    setIsSubmitting(true)
+    setMessage('')
     try {
-      await postGoogleAction('submitOutput', {
-        team_id: targetTeam.id,
-        type,
-        title: output.title,
-        drive_link: cleanLink,
-        email: profile.name,
+      const row = await saveSubmission('submitOutput', payload, attempt.current.id)
+      const output: OutputItem = {
+        id: row.id, teamId: row.team_id, type: String(row.type ?? ''), title: String(row.title ?? ''),
+        status: String(row.status ?? 'submitted') as OutputStatus,
+        linkStatus: String(row.link_status ?? 'kosong') as OutputItem['linkStatus'],
+        umkmFeedback: String(row.umkm_feedback ?? ''), driveLink: String(row.drive_link ?? ''),
+      }
+      setData((current) => {
+        const outputs = [output, ...current.outputs.filter((item) => item.id !== output.id)]
+        return { ...current, outputs, teams: current.teams.map((team) => team.id === targetTeam.id ? { ...team, outputs: outputs.filter((item) => item.teamId === team.id).length } : team) }
       })
+      attempt.current = null
+      setTitle('')
+      setDriveLink('')
       setMessage('Output berhasil dikirim ke Google Sheet.')
-    } catch {
-      setMessage('Output tersimpan di tampilan lokal. Link boleh dilengkapi nanti.')
+    } catch (error) {
+      setMessage(`${error instanceof Error ? error.message : 'Pengiriman belum dapat dikonfirmasi.'} Isian Anda tetap tersedia di halaman ini.`)
+    } finally {
+      inFlight.current = false
+      setIsSubmitting(false)
     }
-
-    setData((current) => ({
-      ...current,
-      outputs: [output, ...current.outputs],
-      teams: current.teams.map((team) => team.id === targetTeam.id ? { ...team, outputs: team.outputs + 1 } : team),
-    }))
-    setTitle('')
-    setDriveLink('')
   }
 
   return (
@@ -946,14 +758,14 @@ function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, s
             <h3>Upload Output</h3>
             <span className="muted">Checklist final challenge</span>
           </div>
-          <div className="form-grid">
-            <label>Tim <select value={teamId} onChange={(event) => setTeamId(event.target.value)}>{visibleTeams.map((team) => <option value={team.id} key={team.id}>{team.name}</option>)}</select></label>
+          <div className="form-grid" inert={isSubmitting}>
+            <label>Tim <select value={selectedTeamId} onChange={(event) => setTeamId(event.target.value)}><option value="">Pilih tim</option>{visibleTeams.map((team) => <option value={team.id} key={team.id}>{team.name}</option>)}</select></label>
             <label>Jenis Output <select value={type} onChange={(event) => setType(event.target.value)}><option>Kalender konten</option><option>Konten media sosial</option><option>Video pendek</option><option>Katalog digital atau landing page</option></select></label>
             <label>Judul <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Judul output" /></label>
             <label>Link Google Drive <input value={driveLink} onChange={(event) => setDriveLink(event.target.value)} placeholder="Opsional jika belum ada" /></label>
-            <button className="monitoring-button primary" onClick={submitOutput}>Simpan Output</button>
-            {message && <span className="form-message">{message}</span>}
+            <button className="monitoring-button primary" disabled={isSubmitting || !selectedTeamId} onClick={submitOutput}>{isSubmitting ? 'Mengirim...' : 'Simpan Output'}</button>
           </div>
+          {message && <p className="form-message" role="status">{message}</p>}
         </section>
       )}
       <section className="output-board">
@@ -974,6 +786,7 @@ function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, s
                     <strong>{output.title}</strong>
                     <p>{team?.name} - {output.linkStatus}</p>
                     <small>{output.umkmFeedback}</small>
+                    {/^https?:\/\//i.test(output.driveLink ?? '') && <a href={output.driveLink} target="_blank" rel="noreferrer">Buka output</a>}
                   </article>
                 )
               })}
