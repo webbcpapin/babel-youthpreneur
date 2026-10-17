@@ -316,7 +316,7 @@ function registerAccount_(payload) {
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Email Google wajib diisi dengan format yang benar.' };
   if (!name || name.length > 120) return { ok: false, error: 'Nama lengkap wajib diisi dan maksimal 120 karakter.' };
-  if (!['mahasiswa', 'dosen', 'umkm', 'juri', 'admin_panitia'].includes(requestedRole)) return { ok: false, error: 'Role pendaftaran tidak valid.' };
+  if (!['mahasiswa', 'dosen', 'umkm', 'juri', 'admin_panitia', 'kampus_viewer', 'pimpinan_viewer'].includes(requestedRole)) return { ok: false, error: 'Role pendaftaran tidak valid.' };
   if (institution.length > 160 || whatsapp.length > 32 || note.length > 500) return { ok: false, error: 'Data pendaftaran melebihi batas yang diizinkan.' };
   if (!dataConsent) return { ok: false, error: 'Persetujuan pemrosesan data wajib diberikan.' };
 

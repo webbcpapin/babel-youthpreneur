@@ -4,10 +4,13 @@ import { randomUUID } from 'node:crypto'
 import vm from 'node:vm'
 import test from 'node:test'
 import ts from 'typescript'
+import * as React from 'react'
+import * as jsxRuntime from 'react/jsx-runtime'
+import { renderToStaticMarkup } from 'react-dom/server'
 
 function loadTs(file, globals = {}, imports = {}) {
   const source = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8')
-  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
+  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText
   const context = vm.createContext({ exports: {}, console, Date, URL, AbortController, Event, CustomEvent, crypto: { randomUUID }, ...globals, require: (name) => {
     if (!(name in imports)) throw new Error(`Unexpected import: ${name}`)
     return imports[name]
@@ -128,4 +131,54 @@ test('API expires session on server rejection and bounds request time', async ()
   const request = api.postAction('getData')
   timeout()
   await assert.rejects(() => request, { code: 'TIMEOUT' })
+})
+
+test('five registration profiles use the intended roles and institution fields', () => {
+  const { REGISTRATION_PROFILES: profiles } = loadTs('auth/registration-profiles.ts')
+  assert.deepEqual(Object.keys(profiles), ['mahasiswa', 'umkm', 'universitas', 'juri', 'kemenkeu'])
+  assert.equal(profiles.universitas.role, 'kampus_viewer')
+  assert.equal(profiles.juri.role, 'juri')
+  assert.equal(profiles.kemenkeu.role, 'pimpinan_viewer')
+  assert.match(profiles.universitas.institutionLabel, /universitas/)
+  assert.match(profiles.kemenkeu.institutionLabel, /Unit kerja/)
+})
+
+const registrationImports = {
+  react: React,
+  'react/jsx-runtime': jsxRuntime,
+  'react-router': { Link: ({ to, children, ...props }) => React.createElement('a', { ...props, href: to }, children) },
+  'lucide-react': { ShieldCheck: () => null },
+  '@/services/monitoring-api': { postAction: () => { throw new Error('Rendering must not submit a registration') } },
+  '@/monitoring/MonitoringPage.css': {},
+}
+
+test('each registration form renders role-specific content with required consent and login return', () => {
+  const { REGISTRATION_PROFILES: profiles } = loadTs('auth/registration-profiles.ts')
+  const Form = loadTs('auth/RegistrationForm.tsx', {}, registrationImports).default
+  for (const profile of Object.values(profiles)) {
+    const markup = renderToStaticMarkup(React.createElement(Form, { profile }))
+    assert.ok(markup.includes(profile.title))
+    assert.ok(markup.includes(profile.institutionLabel))
+    assert.ok(markup.includes(profile.accessNote))
+    assert.match(markup, /type="checkbox"[^>]*required=""|required=""[^>]*type="checkbox"/)
+    assert.match(markup, /href="\/login"/)
+    assert.ok(markup.includes(`Daftar ${profile.label}`))
+  }
+})
+
+test('login offers all five registration routes without needing an authenticated session', () => {
+  const profiles = loadTs('auth/registration-profiles.ts')
+  const Login = loadTs('auth/LoginPage.tsx', {}, {
+    ...registrationImports,
+    'react-router': { ...registrationImports['react-router'], Navigate: () => null, useLocation: () => ({}), useNavigate: () => () => {} },
+    '@/auth/useAuth': { useAuth: () => ({ profile: null, loginWithGoogleCredential: async () => {} }) },
+    '@/auth/google-identity': { loadGoogleIdentity: async () => {} },
+    '@/auth/registration-profiles': profiles,
+    '@/lib/monitoring-config': { getGoogleOAuthClientId: () => '', hasGoogleBackend: () => false },
+  }).default
+  const markup = renderToStaticMarkup(React.createElement(Login))
+  for (const [path, profile] of Object.entries(profiles.REGISTRATION_PROFILES)) {
+    assert.ok(markup.includes(`href="/register/${path}"`))
+    assert.ok(markup.includes(`Daftar ${profile.label}`))
+  }
 })
