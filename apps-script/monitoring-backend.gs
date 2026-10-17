@@ -33,8 +33,8 @@ const SCHEMAS = {
   [SHEETS.learningModules]: ['id', 'course_id', 'title', 'date', 'status', 'progress', 'materials', 'assignment', 'quiz_average', 'created_at'],
   [SHEETS.attendanceSessions]: ['id', 'module_id', 'title', 'token', 'starts_at', 'ends_at', 'location', 'radius_meters', 'created_at'],
   [SHEETS.attendanceRecords]: ['id', 'session_id', 'team_id', 'name', 'email', 'latitude', 'longitude', 'photo_drive_url', 'status', 'submitted_at'],
-  [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at'],
-  [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at'],
+  [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at', 'request_id'],
+  [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at', 'request_id'],
   [SHEETS.challengeScores]: ['id', 'team_id', 'category', 'score', 'note', 'judge_email', 'submitted_at'],
   [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'data_consent', 'status', 'admin_note', 'submitted_at'],
   [SHEETS.sessions]: ['id', 'user_id', 'token_hash', 'expires_at', 'revoked_at', 'created_at'],
@@ -75,6 +75,7 @@ function handleRequest_(e, method) {
     if (!action && method === 'GET') return json_({ ok: true, service: 'Babel Youthpreneur Google Backend', modules: ['kurasi', 'monitoring'], time: now_() });
 
     if (action === 'test') return json_({ ok: true, service: 'Babel Youthpreneur Monitoring Google Backend', time: now_() });
+    if (action !== 'test' && method !== 'POST') return json_({ ok: false, code: 'METHOD_NOT_ALLOWED', error: 'Gunakan POST untuk tindakan ini.' });
     if (action === 'submitKurasi') return json_(submitKurasi_(payload));
     if (action === 'bootstrap') return json_({ ok: false, error: 'Bootstrap hanya boleh dijalankan dari editor Apps Script oleh administrator.' });
     if (action === 'getData') return json_(getData_(payload));
@@ -90,7 +91,7 @@ function handleRequest_(e, method) {
 
     return json_({ ok: false, error: 'Unknown action: ' + action });
   } catch (error) {
-    return json_({ ok: false, error: String(error && error.message ? error.message : error) });
+    return json_({ ok: false, code: error && error.code ? error.code : undefined, error: String(error && error.message ? error.message : error) });
   }
 }
 
@@ -114,7 +115,8 @@ function bootstrap_() {
   const ss = getSpreadsheet_();
   Object.keys(SCHEMAS).forEach((sheetName) => ensureSheet_(ss, sheetName, SCHEMAS[sheetName]));
   const drive = ensureRootFolderSafe_();
-  seedIfEmpty_(ss);
+  // Demo records are opt-in and never inserted by a normal login or read.
+  if (PropertiesService.getScriptProperties().getProperty('ENABLE_DEMO_SEED') === 'true') seedIfEmpty_(ss);
   audit_('system', 'bootstrap', 'spreadsheet', MONITORING_SPREADSHEET_ID, {});
   return {
     ok: true,
@@ -125,15 +127,16 @@ function bootstrap_() {
 }
 
 function getData_(payload) {
-  bootstrap_();
-  const ss = getSpreadsheet_();
   const profile = requireProfile_(payload);
+  const ss = getSpreadsheet_();
   const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses));
   const umkms = readObjects_(ss.getSheetByName(SHEETS.umkms));
   const teams = scopeTeamsForProfile_(profile, readObjects_(ss.getSheetByName(SHEETS.teams)));
   const teamIds = teams.map((team) => team.id);
   const members = readObjects_(ss.getSheetByName(SHEETS.teamMembers));
   const mentors = buildMentors_(ss, profile, teams);
+  const reports = readObjects_(ss.getSheetByName(SHEETS.weeklyReports)).filter((row) => teamIds.includes(row.team_id));
+  const outputs = readObjects_(ss.getSheetByName(SHEETS.outputs)).filter((row) => teamIds.includes(row.team_id));
 
   return {
     ok: true,
@@ -155,24 +158,29 @@ function getData_(payload) {
         umkmLocation: umkm.location || '',
         progress: Number(team.progress || 0),
         status: team.status || 'aman',
-        reports: Number(team.reports || 0),
-        outputs: Number(team.outputs || 0),
+        reports: reports.filter((row) => row.team_id === team.id).length,
+        outputs: outputs.filter((row) => row.team_id === team.id).length,
         attendance: Number(team.attendance || 0),
       };
     }),
-    reports: readObjects_(ss.getSheetByName(SHEETS.weeklyReports)).filter((row) => teamIds.includes(row.team_id)).map((row) => ({
+    reports: reports.map((row) => ({
       id: row.id,
       teamId: row.team_id,
       week: Number(row.week || 0),
       activity: row.activity || '',
       progress: row.progress || '',
+      obstacles: row.obstacles || '',
+      nextPlan: row.next_plan || '',
+      driveLink: row.drive_link || '',
+      publicationLink: row.publication_link || '',
       validation: row.validation || 'pending',
     })),
-    outputs: readObjects_(ss.getSheetByName(SHEETS.outputs)).filter((row) => teamIds.includes(row.team_id)).map((row) => ({
+    outputs: outputs.map((row) => ({
       id: row.id,
       teamId: row.team_id,
       type: row.type || '',
       title: row.title || '',
+      driveLink: row.drive_link || '',
       status: row.status || 'draft',
       linkStatus: row.link_status || 'perlu dicek',
       umkmFeedback: row.umkm_feedback || '',
@@ -188,7 +196,6 @@ function getData_(payload) {
 }
 
 function loginWithGoogle_(payload) {
-  bootstrap_();
   const identity = verifyGoogleIdToken_(payload.id_token);
   if (!identity.ok) return identity;
 
@@ -204,17 +211,15 @@ function loginWithGoogle_(payload) {
 }
 
 function getSession_(payload) {
-  bootstrap_();
   const context = getSessionContext_(payload);
   return {
     ok: true,
     profile: context.profile,
-    session: { token: context.token, expiresAt: context.session.expires_at },
+    session: { token: context.token, expiresAt: new Date(context.session.expires_at).toISOString() },
   };
 }
 
 function logout_(payload) {
-  bootstrap_();
   const token = String((payload || {}).session_token || '');
   if (!token) return { ok: true };
   const session = findSession_(token);
@@ -289,18 +294,18 @@ function findSession_(token) {
 
 function getSessionContext_(payload) {
   const token = String((payload || {}).session_token || '');
-  if (!token) throw new Error('Sesi login diperlukan.');
+  if (!token) throw apiError_('SESSION_REQUIRED', 'Sesi login diperlukan.');
   const session = findSession_(token);
-  if (!session || session.revoked_at || new Date(session.expires_at).getTime() <= Date.now()) throw new Error('Sesi sudah tidak berlaku. Silakan masuk kembali.');
+  const expiresAt = session ? new Date(session.expires_at).getTime() : NaN;
+  if (!session || session.revoked_at || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw apiError_('SESSION_EXPIRED', 'Sesi sudah tidak berlaku. Silakan masuk kembali.');
   const users = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.appUsers));
   const user = users.find((item) => String(item.id || '') === String(session.user_id || ''));
   const userError = validateActiveUser_(user);
-  if (userError) throw new Error(userError.error);
+  if (userError) throw apiError_('ACCOUNT_DISABLED', userError.error);
   return { token: token, session: session, profile: profileFromUser_(user) };
 }
 
 function registerAccount_(payload) {
-  bootstrap_();
   const email = String(payload.email || '').trim().toLowerCase();
   const name = String(payload.name || '').trim();
   const requestedRole = String(payload.requested_role || '').trim().toLowerCase();
@@ -398,9 +403,9 @@ function buildMentors_(ss, profile, scopedTeams) {
 function scopeTeamsForProfile_(profile, teams) {
   if (!profile) return [];
   if (canSeeAllTeams_(profile.role)) return teams;
-  if (isStudentRole_(profile.role)) return teams.filter((team) => team.id === profile.teamId);
-  if (profile.role === 'umkm') return teams.filter((team) => team.umkm_id === profile.umkmId);
-  if (profile.role === 'dosen' || profile.role === 'kampus_viewer') return teams.filter((team) => team.campus_id === profile.campusId);
+  if (isStudentRole_(profile.role)) return profile.teamId ? teams.filter((team) => team.id === profile.teamId) : [];
+  if (profile.role === 'umkm') return profile.umkmId ? teams.filter((team) => team.umkm_id === profile.umkmId) : [];
+  if (profile.role === 'dosen' || profile.role === 'kampus_viewer') return profile.campusId ? teams.filter((team) => team.campus_id === profile.campusId) : [];
   return [];
 }
 
@@ -421,22 +426,26 @@ function requireProfile_(payload) {
 }
 
 function canAccessTeam_(profile, teamId) {
-  if (canSeeAllTeams_(profile.role)) return true;
+  if (!teamId) return false;
   const teams = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.teams));
   return scopeTeamsForProfile_(profile, teams).some((team) => team.id === teamId);
 }
 
 function submitWeeklyReport_(payload) {
-  bootstrap_();
   const profile = requireProfile_(payload);
   if (!isAdminRole_(profile.role) && !isStudentRole_(profile.role)) return { ok: false, error: 'Role tidak boleh mengirim laporan mingguan.' };
   if (!canAccessTeam_(profile, payload.team_id)) return { ok: false, error: 'Tim tidak sesuai dengan akses pengguna.' };
+  const week = Number(payload.week);
+  if (!Number.isInteger(week) || week < 1 || week > 52) return { ok: false, error: 'Minggu laporan harus berupa angka 1 sampai 52.' };
+  const activity = String(payload.activity || '').trim();
+  const progress = String(payload.progress || '').trim();
+  if (!activity || !progress || activity.length > 10000 || progress.length > 10000) return { ok: false, error: 'Aktivitas dan progres wajib diisi, maksimal 10000 karakter.' };
   const row = {
     id: makeId_('wr'),
     team_id: payload.team_id,
-    week: payload.week,
-    activity: payload.activity,
-    progress: payload.progress,
+    week: week,
+    activity: activity,
+    progress: progress,
     obstacles: payload.obstacles || '',
     next_plan: payload.next_plan || '',
     drive_link: payload.drive_link || '',
@@ -444,17 +453,16 @@ function submitWeeklyReport_(payload) {
     validation: 'pending',
     submitted_by: profile.email,
     submitted_at: now_(),
+    request_id: String(payload.request_id || '').slice(0, 128),
   };
-  appendObject_(SHEETS.weeklyReports, row);
-  audit_(profile.email, 'submitWeeklyReport', 'weekly_report', row.id, row);
-  return { ok: true, row: row };
+  return persistSubmission_(SHEETS.weeklyReports, row, profile, 'submitWeeklyReport', 'weekly_report');
 }
 
 function submitOutput_(payload) {
-  bootstrap_();
   const profile = requireProfile_(payload);
   if (!isAdminRole_(profile.role) && !isStudentRole_(profile.role)) return { ok: false, error: 'Role tidak boleh mengirim output.' };
   if (!canAccessTeam_(profile, payload.team_id)) return { ok: false, error: 'Tim tidak sesuai dengan akses pengguna.' };
+  if (!String(payload.title || '').trim() || !String(payload.type || '').trim()) return { ok: false, error: 'Jenis dan judul output wajib diisi.' };
   const row = {
     id: makeId_('out'),
     team_id: payload.team_id,
@@ -467,14 +475,34 @@ function submitOutput_(payload) {
     umkm_feedback: 'Menunggu review',
     submitted_by: profile.email,
     submitted_at: now_(),
+    request_id: String(payload.request_id || '').slice(0, 128),
   };
-  appendObject_(SHEETS.outputs, row);
-  audit_(profile.email, 'submitOutput', 'output', row.id, row);
-  return { ok: true, row: row };
+  return persistSubmission_(SHEETS.outputs, row, profile, 'submitOutput', 'output');
+}
+
+function persistSubmission_(sheetName, row, profile, action, entityType) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return { ok: false, error: 'Layanan sedang sibuk. Coba kirim lagi beberapa saat.' };
+  try {
+    if (row.request_id) {
+      const existing = readObjects_(getSpreadsheet_().getSheetByName(sheetName)).find((item) => item.request_id === row.request_id && item.submitted_by === profile.email);
+      if (existing) {
+        const comparableKeys = Object.keys(row).filter((key) => !['id', 'submitted_at', 'validation', 'status', 'link_status', 'umkm_feedback'].includes(key));
+        if (comparableKeys.some((key) => String(existing[key] || '') !== String(row[key] || ''))) {
+          return { ok: false, error: 'Permintaan ini sudah dipakai untuk data berbeda. Muat ulang halaman sebelum mengirim perubahan.' };
+        }
+        return { ok: true, row: existing, replayed: true };
+      }
+    }
+    appendObject_(sheetName, row);
+    audit_(profile.email, action, entityType, row.id, row);
+    return { ok: true, row: row };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function submitScore_(payload) {
-  bootstrap_();
   const profile = requireProfile_(payload);
   if (!isAdminRole_(profile.role) && profile.role !== 'juri') return { ok: false, error: 'Role tidak boleh mengisi skor challenge.' };
   if (!canAccessTeam_(profile, payload.team_id)) return { ok: false, error: 'Tim tidak sesuai dengan akses pengguna.' };
@@ -494,7 +522,6 @@ function submitScore_(payload) {
 }
 
 function submitAttendance_(payload) {
-  bootstrap_();
   const profile = requireProfile_(payload);
   if (!isAdminRole_(profile.role) && !isStudentRole_(profile.role)) return { ok: false, error: 'Role tidak boleh mengisi presensi.' };
   if (payload.team_id && !canAccessTeam_(profile, payload.team_id)) return { ok: false, error: 'Tim tidak sesuai dengan akses pengguna.' };
@@ -517,7 +544,6 @@ function submitAttendance_(payload) {
 }
 
 function exportCsv_(payload) {
-  bootstrap_();
   const profile = requireProfile_(payload);
   if (!isAdminRole_(profile.role) && !['dosen', 'kampus_viewer', 'pimpinan_viewer', 'juri'].includes(profile.role)) return { ok: false, error: 'Role tidak boleh export laporan.' };
   const sheetName = payload.sheet || SHEETS.teams;
@@ -806,6 +832,12 @@ function csvCell_(value) {
 
 function now_() {
   return new Date().toISOString();
+}
+
+function apiError_(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
 }
 
 function json_(data) {

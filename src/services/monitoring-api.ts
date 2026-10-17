@@ -5,8 +5,21 @@ export type ApiPayload = Record<string, string | number | boolean | undefined>
 export type ApiResponse = {
   ok: boolean
   error?: string
+  code?: string
   message?: string
   [key: string]: unknown
+}
+
+export const SESSION_INVALID_EVENT = 'byp:session-invalid'
+
+export class ApiError extends Error {
+  readonly code?: string
+
+  constructor(message: string, code?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+  }
 }
 
 function apiUrl(action: string): string {
@@ -20,7 +33,7 @@ function apiUrl(action: string): string {
   return url.toString()
 }
 
-async function parseResponse(response: Response): Promise<ApiResponse> {
+async function parseResponse(response: Response, sessionToken?: string): Promise<ApiResponse> {
   if (!response.ok) throw new Error(`Backend Google mengembalikan status ${response.status}.`)
   const contentType = response.headers.get('content-type') ?? ''
   if (!contentType.includes('application/json')) {
@@ -28,8 +41,28 @@ async function parseResponse(response: Response): Promise<ApiResponse> {
   }
 
   const body = await response.json() as ApiResponse
-  if (!body.ok) throw new Error(body.error || 'Permintaan tidak dapat diproses.')
+  if (!body.ok) {
+    if (['SESSION_REQUIRED', 'SESSION_EXPIRED', 'ACCOUNT_DISABLED'].includes(body.code ?? '')) {
+      window.dispatchEvent(new CustomEvent(SESSION_INVALID_EVENT, { detail: sessionToken }))
+    }
+    throw new ApiError(body.error || 'Permintaan tidak dapat diproses.', body.code)
+  }
   return body
+}
+
+async function request(url: string, options?: RequestInit, sessionToken?: string): Promise<ApiResponse> {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 30_000)
+  try {
+    return await parseResponse(await fetch(url, { ...options, signal: controller.signal }), sessionToken)
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new ApiError('Koneksi terlalu lama. Status pengiriman belum dapat dipastikan. Coba lagi saat koneksi pulih.', 'TIMEOUT')
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 export async function getPublicAction(action: string, payload: ApiPayload = {}): Promise<ApiResponse> {
@@ -37,14 +70,13 @@ export async function getPublicAction(action: string, payload: ApiPayload = {}):
   Object.entries(payload).forEach(([key, value]) => {
     if (value !== undefined && value !== '') url.searchParams.set(key, String(value))
   })
-  return parseResponse(await fetch(url.toString()))
+  return request(url.toString())
 }
 
 export async function postAction(action: string, payload: ApiPayload = {}): Promise<ApiResponse> {
-  const response = await fetch(apiUrl(action), {
+  return request(apiUrl(action), {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload),
-  })
-  return parseResponse(response)
+  }, typeof payload.session_token === 'string' ? payload.session_token : undefined)
 }
