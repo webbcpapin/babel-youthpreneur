@@ -120,42 +120,42 @@ type BackendStatus = {
 const learningModules: LearningModule[] = [
   {
     id: 'm1',
-    title: 'Orientasi Program dan Etika Pendampingan UMKM',
-    date: '7 Agustus 2026',
-    status: 'Selesai',
-    progress: 100,
-    materials: ['Modul teks', 'Slide', 'Quiz'],
-    assignment: 'Peta kebutuhan UMKM',
-    quizAverage: 86,
+    title: 'Entrepreneurship',
+    date: '18 November 2026 · Finalia',
+    status: 'Belum mulai',
+    progress: 0,
+    materials: ['Kisah usaha Tanahwari', 'Branding', 'Business pitching'],
+    assignment: 'Petakan potensi dan kebutuhan UMKM pasangan',
+    quizAverage: 0,
   },
   {
     id: 'm2',
-    title: 'Digital Branding dan Copywriting',
-    date: '14 Agustus 2026',
-    status: 'Berjalan',
-    progress: 64,
-    materials: ['Video', 'Template caption', 'Quiz'],
-    assignment: 'Draft brand voice',
-    quizAverage: 78,
+    title: 'Digital Marketing Media Sosial dan Monetisasi',
+    date: '18 November 2026 · Enti Hidayati',
+    status: 'Belum mulai',
+    progress: 0,
+    materials: ['Instagram Business', 'Konten promosi', 'Monetisasi'],
+    assignment: 'Analisis awal kanal digital UMKM',
+    quizAverage: 0,
   },
   {
     id: 'm3',
-    title: 'Foto Produk dan Video Pendek',
-    date: '21 Agustus 2026',
+    title: 'Product Catalog, Foto dan Video Promosi',
+    date: '18 November 2026 · Cento Sadewa',
     status: 'Belum mulai',
-    progress: 12,
-    materials: ['Video praktik', 'Checklist alat', 'Tugas'],
-    assignment: '3 foto produk dan 1 video',
+    progress: 0,
+    materials: ['Katalog produk', 'Fotografi produk', 'Video promosi'],
+    assignment: 'Rancang katalog produk UMKM',
     quizAverage: 0,
   },
   {
     id: 'm4',
-    title: 'Katalog Digital dan Landing Page',
-    date: '28 Agustus 2026',
+    title: 'Optimalisasi AI untuk UMKM',
+    date: '18 November 2026 · Lereng Cahyo Handoko',
     status: 'Belum mulai',
     progress: 0,
-    materials: ['Slide', 'Contoh landing page', 'Rubrik'],
-    assignment: 'Link katalog siap uji',
+    materials: ['AI untuk konten', 'Analisis pasar', 'Strategi digital'],
+    assignment: 'Susun rekomendasi ide bisnis yang sesuai UMKM',
     quizAverage: 0,
   },
 ]
@@ -273,6 +273,7 @@ function MonitoringPage() {
     if (!cleanQuery) return base
     return base.filter((team) => `${team.name} ${team.campus} ${team.umkm} ${team.members.join(' ')}`.toLowerCase().includes(cleanQuery))
   }, [data.teams, profile, query])
+  const legacyDemoData = data.teams.some((team) => /madu|dnd cake|raja lele|keripik cumi/i.test(team.umkm))
 
   if (!profile) return null
 
@@ -281,7 +282,7 @@ function MonitoringPage() {
       <div className="monitoring-app">
         <aside className="monitoring-sidebar">
           <div className="brand-row">
-            <div className="brand-mark">BY</div>
+            <img className="brand-mark" src="/images/byp-2026-logo-final.jpeg" alt="" />
             <div>
               <p className="sidebar-title">Babel Youthpreneur</p>
               <h2 className="sidebar-heading">Monitoring System</h2>
@@ -333,6 +334,7 @@ function MonitoringPage() {
           </header>
 
           <BackendNotice status={backendStatus} />
+          {legacyDemoData && <div className="backend-notice local"><strong>Data tim perlu diperbarui</strong><span>Google Sheet masih memuat contoh tim dan UMKM lama. Angka progress, laporan, dan ranking pada data ini belum mewakili program 2026.</span></div>}
           {backendStatus.mode === 'error' && <button className="monitoring-button" onClick={() => { setBackendStatus((current) => ({ ...current, mode: 'loading', message: 'Memuat ulang data monitoring...' })); setLoadAttempt((value) => value + 1) }}>Coba muat ulang data</button>}
 
           {view === 'dashboard' && <Dashboard profile={profile} teams={scopedTeams} reports={data.reports} outputs={data.outputs} />}
@@ -475,8 +477,8 @@ function LearningCenter({ profile }: { profile: Profile }) {
       <section className="hero-strip">
         <div>
           <p className="eyebrow">Learning Center</p>
-          <h2>Course Pelatihan Agustus</h2>
-          <p>Materi, video, slide, kuis, tugas, dan progress belajar diringkas agar mahasiswa, dosen, dan panitia punya acuan yang sama.</p>
+          <h2>Pembekalan 18 November 2026</h2>
+          <p>Empat materi pelatihan resmi di Aula Lt. II Kanwil DJPb Bangka Belitung. Batas pengumpulan karya challenge: 9 Desember 2026.</p>
         </div>
         <GraduationCap size={96} color="#0f766e" />
       </section>
@@ -499,8 +501,7 @@ function LearningCenter({ profile }: { profile: Profile }) {
                 <span className="material-chip" key={material}>{material}</span>
               ))}
             </div>
-            <p className="muted">Tugas: {module.assignment}</p>
-            <strong>Rata-rata kuis: {module.quizAverage || '-'}{module.quizAverage ? '/100' : ''}</strong>
+            <p className="muted">Fokus penerapan: {module.assignment}</p>
             {profile.role === 'admin' && <button className="monitoring-button primary">Kelola Modul</button>}
           </article>
         ))}
@@ -692,7 +693,7 @@ function WeeklyMonitoring({ profile, teams: visibleTeams, reports: activeReports
 function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, setData }: { profile: Profile; teams: Team[]; outputs: OutputItem[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
   const visibleOutputs = activeOutputs.filter((output) => visibleTeams.some((team) => team.id === output.teamId))
   const [teamId, setTeamId] = useState(visibleTeams[0]?.id ?? '')
-  const [type, setType] = useState('Kalender konten')
+  const [type, setType] = useState('Digital Marketing Strategy')
   const [title, setTitle] = useState('')
   const [driveLink, setDriveLink] = useState('')
   const [message, setMessage] = useState('')
@@ -756,11 +757,11 @@ function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, s
         <section className="panel">
           <div className="panel-title">
             <h3>Upload Output</h3>
-            <span className="muted">Checklist final challenge</span>
+            <span className="muted">Batas pengumpulan 9 Desember 2026</span>
           </div>
           <div className="form-grid" inert={isSubmitting}>
             <label>Tim <select value={selectedTeamId} onChange={(event) => setTeamId(event.target.value)}><option value="">Pilih tim</option>{visibleTeams.map((team) => <option value={team.id} key={team.id}>{team.name}</option>)}</select></label>
-            <label>Jenis Output <select value={type} onChange={(event) => setType(event.target.value)}><option>Kalender konten</option><option>Konten media sosial</option><option>Video pendek</option><option>Katalog digital atau landing page</option></select></label>
+            <label>Jenis Output <select value={type} onChange={(event) => setType(event.target.value)}><option>Digital Marketing Strategy</option><option>Best Catalog Product</option><option>Best Innovative Business Idea</option></select></label>
             <label>Judul <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Judul output" /></label>
             <label>Link Google Drive <input value={driveLink} onChange={(event) => setDriveLink(event.target.value)} placeholder="Opsional jika belum ada" /></label>
             <button className="monitoring-button primary" disabled={isSubmitting || !selectedTeamId} onClick={submitOutput}>{isSubmitting ? 'Mengirim...' : 'Simpan Output'}</button>

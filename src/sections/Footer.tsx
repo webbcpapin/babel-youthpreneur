@@ -20,9 +20,9 @@ export default function Footer() {
               }}
             >
               <img
-                src="./images/byp-2026-logo-complete-transparent.png"
+                src="/images/byp-2026-logo-final.jpeg"
                 alt="Babel Youthpreneur 2026"
-                style={{ display: 'block', width: '100%', height: 'auto' }}
+                style={{ display: 'block', width: '100%', height: 'auto', background: '#fff' }}
               />
             </div>
             <p

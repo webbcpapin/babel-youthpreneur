@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router'
 const navLinks = [
   { label: 'Beranda', href: '/' },
   { label: 'Evaluasi 2025', href: '/evaluasi' },
-  { label: 'Rencana 2026', href: '/rencana-2026' },
+  { label: 'Program 2026', href: '/#program' },
   { label: 'Masuk / Daftar', href: '/login' },
   { label: 'Kurasi UMKM', href: './kurasi/', external: true },
   { label: 'Dokumentasi', href: '/dokumentasi' },
@@ -23,6 +23,11 @@ export default function Navigation() {
 
   const handleNav = (href: string) => {
     setMobileOpen(false)
+    if (href.startsWith('/#')) {
+      if (location.pathname !== '/') navigate('/')
+      window.setTimeout(() => document.getElementById(href.slice(2))?.scrollIntoView({ behavior: 'smooth' }), 50)
+      return
+    }
     if (href.startsWith('./')) {
       window.location.href = href
       return
@@ -58,9 +63,9 @@ export default function Navigation() {
               }}
             >
               <img
-                src="./images/byp-2026-logo-icon-transparent.png"
+                src="/images/byp-2026-logo-final.jpeg"
                 alt=""
-                style={{ width: 34, height: 34, objectFit: 'contain' }}
+                style={{ width: 80, height: 34, maxWidth: 'none', objectFit: 'cover', objectPosition: 'left center' }}
               />
             </span>
             <span>Babel Youthpreneur</span>
