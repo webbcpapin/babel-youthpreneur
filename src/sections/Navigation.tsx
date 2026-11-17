@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 
 const navLinks = [
   { label: 'Beranda', href: '/' },
-  { label: 'Evaluasi 2025', href: '/evaluasi' },
+  { label: 'Kegiatan 2025', href: '/kegiatan-2025' },
   { label: 'Program 2026', href: '/#program' },
   { label: 'Masuk / Daftar', href: '/login' },
   { label: 'Kurasi UMKM', href: './kurasi/', external: true },

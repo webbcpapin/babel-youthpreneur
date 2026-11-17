@@ -22,6 +22,7 @@ function GoogleLoginButton({ onCredential, onError, disabled }: { onCredential: 
         window.google.accounts.id.initialize({
           client_id: clientId,
           ux_mode: 'popup',
+          use_fedcm_for_button: true,
           callback: (response: GoogleCredentialResponse) => {
             if (!response.credential) {
               onError('Google tidak mengirim bukti identitas. Silakan coba lagi.')

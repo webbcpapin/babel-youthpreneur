@@ -18,7 +18,7 @@ export type GoogleCredentialResponse = {
 type GoogleIdentityGlobal = {
   accounts: {
     id: {
-      initialize: (options: { client_id: string; callback: (response: GoogleCredentialResponse) => void; ux_mode?: 'popup' }) => void
+      initialize: (options: { client_id: string; callback: (response: GoogleCredentialResponse) => void; ux_mode?: 'popup'; use_fedcm_for_button?: boolean }) => void
       renderButton: (element: HTMLElement, options: { theme?: 'outline' | 'filled_blue'; size?: 'large' | 'medium' | 'small'; width?: number; text?: 'signin_with' | 'signup_with' | 'continue_with' }) => void
     }
   }
