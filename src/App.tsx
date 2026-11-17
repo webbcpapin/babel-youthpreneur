@@ -8,7 +8,6 @@ import MonitoringPage from './monitoring/MonitoringPage'
 import DokumentasiPage from './pages/DokumentasiPage'
 import EvaluasiPage from './pages/EvaluasiPage'
 import HomePage from './pages/HomePage'
-import RencanaPage from './pages/RencanaPage'
 import RegisterMahasiswaPage from './pages/RegisterMahasiswaPage'
 import RegisterUmkmPage from './pages/RegisterUmkmPage'
 
@@ -31,7 +30,7 @@ export default function App() {
         <Route key={kind} path={`/register/${kind}`} element={<RegistrationForm key={kind} profile={REGISTRATION_PROFILES[kind]} />} />
       ))}
       <Route path="/evaluasi" element={<EvaluasiPage />} />
-      <Route path="/rencana-2026" element={<RencanaPage />} />
+      <Route path="/rencana-2026" element={<Navigate to="/" replace />} />
       <Route path="/dokumentasi" element={<DokumentasiPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route element={<ProtectedRoute />}>
