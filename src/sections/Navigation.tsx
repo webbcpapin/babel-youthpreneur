@@ -56,16 +56,16 @@ export default function Navigation() {
             style={{ color: '#f5f2ed' }}
           >
             <span
-              className="flex items-center justify-center overflow-hidden"
+              className="flex items-center justify-center flex-shrink-0"
               style={{
                 width: 40,
                 height: 40,
               }}
             >
               <img
-                src="/images/byp-2026-logo-final.jpeg"
+                src="/images/byp-2026-logo-icon-transparent.png"
                 alt=""
-                style={{ width: 80, height: 34, maxWidth: 'none', objectFit: 'cover', objectPosition: 'left center' }}
+                style={{ width: 38, height: 38, objectFit: 'contain' }}
               />
             </span>
             <span>Babel Youthpreneur</span>

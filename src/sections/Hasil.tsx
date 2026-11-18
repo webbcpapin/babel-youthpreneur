@@ -1,5 +1,5 @@
 ﻿import { useRef, useEffect } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, FolderOpen } from 'lucide-react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
@@ -18,16 +18,16 @@ const challenge2 = [
 ]
 
 const karyaPeserta = [
-  { label: 'Kelompok 01 - Madu RR Arisi', cpkp: './files/hasil/cpkp-01.pdf', ide: './files/hasil/ide-01.pdf' },
-  { label: 'Kelompok 02 - JJ Catering', cpkp: './files/hasil/cpkp-02.pdf', ide: './files/hasil/ide-02.pdf' },
-  { label: 'Kelompok 03 - DnD Cake N Cookies', cpkp: './files/hasil/cpkp-03.pdf', ide: './files/hasil/ide-03.pdf' },
-  { label: 'Kelompok 04 - Deshanda Craft', cpkp: './files/hasil/cpkp-04.pdf', ide: './files/hasil/ide-04.pdf' },
-  { label: "Kelompok 05 - Kamiz Choc's", cpkp: './files/hasil/cpkp-05.pdf', ide: './files/hasil/ide-05.pdf' },
-  { label: 'Kelompok 06 - Keripik Cumi Nina', cpkp: './files/hasil/cpkp-06.pdf', ide: './files/hasil/ide-06.pdf' },
-  { label: 'Kelompok 07 - RM Raja Lele', cpkp: './files/hasil/cpkp-07.pdf', ide: './files/hasil/ide-07.pdf' },
-  { label: 'Kelompok 08 - 3 Shesca Decoupage', cpkp: './files/hasil/cpkp-08.pdf', ide: './files/hasil/ide-08.pdf' },
-  { label: 'Kelompok 09 - PT Central Charcoal Babelindo', cpkp: './files/hasil/cpkp-09.pdf', ide: './files/hasil/ide-09.pdf' },
-  { label: 'Kelompok 10 - Deviz Indo Bangka', cpkp: './files/hasil/cpkp-10.pdf', ide: './files/hasil/ide-10.pdf' },
+  { label: 'Kelompok 01 - Madu RR Arisi', cpkp: 'https://drive.google.com/file/d/1y_g8r6KfpTUoAIhXAVyWUTMtbe7amxoc/view', ide: 'https://drive.google.com/file/d/1os1k1Z8NLpMW8TwWbjr1u8I7bigV8vMj/view' },
+  { label: 'Kelompok 02 - JJ Catering', cpkp: 'https://drive.google.com/drive/folders/10Zjc2DfxRXMdeIS_ntsBSFTGiZnWcz6t', ide: 'https://drive.google.com/drive/folders/13d_dX9GJj8OBqIyIQkZpox3al9DA1kcT', folder: true },
+  { label: 'Kelompok 03 - DnD Cake N Cookies', cpkp: 'https://drive.google.com/file/d/1AIamTEA8hFfxF5WtLXYtXJawLTf8ql9Z/view', ide: 'https://drive.google.com/file/d/1kHG7BCmSnsx16T_PIryy-5x219Xbb3J6/view' },
+  { label: 'Kelompok 04 - Deshanda Craft', cpkp: 'https://drive.google.com/file/d/1FV9IsqafR9CIs_UkHZjqGRcTW9VxO5NZ/view', ide: 'https://drive.google.com/file/d/1ZZujbMC8ytQpqil_Irgxlcth9Psk_6Ez/view' },
+  { label: "Kelompok 05 - Kamiz Choc's", cpkp: 'https://drive.google.com/file/d/1Gtliqq9RIRvH8fZwjzNgP7U2yhJsMG7g/view', ide: 'https://drive.google.com/file/d/1UP7N2-cl1jqXZ7r_TcHnnygX6GYWqk4X/view' },
+  { label: 'Kelompok 06 - Keripik Cumi Nina', cpkp: 'https://drive.google.com/file/d/1-zO7quXZksTrikgiFRPkRgEULwi-4FiI/view', ide: 'https://drive.google.com/file/d/1dLQCOPDL3OYWxcr9uqojiHhEf0LrbfxS/view' },
+  { label: 'Kelompok 07 - RM Raja Lele', cpkp: 'https://drive.google.com/file/d/1D5AIjoj3xGyMja0lyLnJRqqf5fpl2d2B/view', ide: 'https://drive.google.com/file/d/1Ff2ON03iEF6Wpt2Wh_mavE2FiLr58hi5/view' },
+  { label: 'Kelompok 08 - 3 Shesca Decoupage', cpkp: 'https://drive.google.com/file/d/1Wu_58RNPfRuINz3s1kZa2tqsUlhJ__3P/view', ide: 'https://drive.google.com/file/d/1jTdEnbf7LvGxdUOdkeag9-yClLocsawz/view' },
+  { label: 'Kelompok 09 - PT Central Charcoal Babelindo', cpkp: 'https://drive.google.com/file/d/1_ie0wXF8BQqFXuVf1O22aVqto3MzU4T5/view', ide: 'https://drive.google.com/file/d/1eUFDhVcOvBh-IE70O3f5SvzzwAQ-9-m0/view' },
+  { label: 'Kelompok 10 - Deviz Indo Bangka', cpkp: 'https://drive.google.com/file/d/17QQISEikxrF3D8IBOEoAON47lvBR20aC/view', ide: 'https://drive.google.com/file/d/1C5W-A_Eqs0J2-ULIioGfkjfWm7pwImm4/view' },
 ]
 
 export default function Hasil() {
@@ -51,7 +51,7 @@ export default function Hasil() {
     </div>
   )
 
-  const FileRow = ({ href, label, color }: { href: string; label: string; color: string }) => (
+  const FileRow = ({ href, label, color, folder = false }: { href: string; label: string; color: string; folder?: boolean }) => (
     <a
       href={href}
       target="_blank"
@@ -59,9 +59,9 @@ export default function Hasil() {
       className="file-row flex items-center gap-3 py-3 px-4 rounded-sm transition-colors duration-300 hover:bg-[#24201d]"
       style={{ background: '#181614' }}
     >
-      <FileText size={16} strokeWidth={1.8} style={{ color }} className="flex-shrink-0" />
+      {folder ? <FolderOpen size={16} strokeWidth={1.8} style={{ color }} className="flex-shrink-0" /> : <FileText size={16} strokeWidth={1.8} style={{ color }} className="flex-shrink-0" />}
       <span className="font-body font-light flex-1" style={{ color: 'rgba(245,242,237,0.74)', fontSize: 14 }}>{label}</span>
-      <span className="font-body text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color }}>PDF</span>
+      <span className="font-body text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color }}>{folder ? 'Folder' : 'PDF'}</span>
     </a>
   )
 
@@ -92,11 +92,11 @@ export default function Hasil() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
             <div>
               <p className="font-body text-xs font-semibold uppercase tracking-[0.12em] mb-4" style={{ color: '#c9a87c' }}>Katalog Produk &amp; Company Profile (10 Tim)</p>
-              <div className="space-y-2">{karyaPeserta.map((t) => <FileRow key={t.cpkp} href={t.cpkp} label={t.label} color="#c9a87c" />)}</div>
+              <div className="space-y-2">{karyaPeserta.map((t) => <FileRow key={t.cpkp} href={t.cpkp} label={t.label} color="#c9a87c" folder={t.folder} />)}</div>
             </div>
             <div>
               <p className="font-body text-xs font-semibold uppercase tracking-[0.12em] mb-4" style={{ color: '#c9a87c' }}>Proposal Pengembangan Ide Bisnis (10 Tim)</p>
-              <div className="space-y-2">{karyaPeserta.map((t) => <FileRow key={t.ide} href={t.ide} label={t.label} color="#4a7c59" />)}</div>
+              <div className="space-y-2">{karyaPeserta.map((t) => <FileRow key={t.ide} href={t.ide} label={t.label} color="#4a7c59" folder={t.folder} />)}</div>
             </div>
           </div>
         </div>
