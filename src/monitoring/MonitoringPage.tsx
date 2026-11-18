@@ -205,11 +205,13 @@ async function fetchGoogleData(): Promise<MonitoringData> {
   const token = readStoredSession()?.token
   if (!token) throw new Error('Sesi login tidak tersedia.')
   const payload = await postAction('getData', { session_token: token })
+  const teams = ((payload.teams as Team[] | undefined) ?? []).filter((team) => team.id.startsWith('byp26-'))
+  const teamIds = new Set(teams.map((team) => team.id))
   return {
-    teams: (payload.teams as Team[] | undefined) ?? [],
-    reports: (payload.reports as WeeklyReport[] | undefined) ?? [],
-    outputs: (payload.outputs as OutputItem[] | undefined) ?? [],
-    scores: (payload.scores as Score[] | undefined) ?? [],
+    teams,
+    reports: ((payload.reports as WeeklyReport[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
+    outputs: ((payload.outputs as OutputItem[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
+    scores: ((payload.scores as Score[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
     mentors: (payload.mentors as Mentor[] | undefined) ?? [],
   }
 }
@@ -273,7 +275,6 @@ function MonitoringPage() {
     if (!cleanQuery) return base
     return base.filter((team) => `${team.name} ${team.campus} ${team.umkm} ${team.members.join(' ')}`.toLowerCase().includes(cleanQuery))
   }, [data.teams, profile, query])
-  const legacyDemoData = data.teams.some((team) => /madu|dnd cake|raja lele|keripik cumi/i.test(team.umkm))
 
   if (!profile) return null
 
@@ -334,7 +335,7 @@ function MonitoringPage() {
           </header>
 
           <BackendNotice status={backendStatus} />
-          {legacyDemoData && <div className="backend-notice local"><strong>Data tim perlu diperbarui</strong><span>Google Sheet masih memuat contoh tim dan UMKM lama. Angka progress, laporan, dan ranking pada data ini belum mewakili program 2026.</span></div>}
+          {backendStatus.mode === 'google' && data.teams.length === 0 && <div className="backend-notice local"><strong>Roster 2026 belum dimuat</strong><span>Admin perlu menjalankan setup2026Roster dari editor Apps Script dan menetapkan tim pada akun peserta. Data 2025 tidak ditampilkan di dashboard ini.</span></div>}
           {backendStatus.mode === 'error' && <button className="monitoring-button" onClick={() => { setBackendStatus((current) => ({ ...current, mode: 'loading', message: 'Memuat ulang data monitoring...' })); setLoadAttempt((value) => value + 1) }}>Coba muat ulang data</button>}
 
           {view === 'dashboard' && <Dashboard profile={profile} teams={scopedTeams} reports={data.reports} outputs={data.outputs} />}
@@ -435,30 +436,6 @@ function Dashboard({ profile, teams: visibleTeams, reports: activeReports, outpu
           </div>
         </section>
       )}
-
-      <section className="panel">
-        <div className="panel-title">
-          <h3>Progress Program</h3>
-          <span className="muted">Fase berjalan</span>
-        </div>
-        <div className="phase-track">
-          {[
-            ['Kurasi', 100],
-            ['Pelatihan', 70],
-            ['Pendampingan', 52],
-            ['Final Challenge', 24],
-            ['Evaluasi', 10],
-          ].map(([label, value]) => (
-            <div className="phase-item" key={label}>
-              <strong>{label}</strong>
-              <div className="bar">
-                <span style={{ width: `${value}%` }} />
-              </div>
-              <span>{value}%</span>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section className="panel">
         <div className="panel-title">

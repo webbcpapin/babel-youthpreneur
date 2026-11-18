@@ -27,7 +27,7 @@ const SCHEMAS = {
   [SHEETS.appUsers]: ['id', 'email', 'name', 'role', 'campus_id', 'team_id', 'umkm_id', 'status', 'created_at'],
   [SHEETS.campuses]: ['id', 'name', 'pic', 'created_at'],
   [SHEETS.umkms]: ['id', 'business_name', 'owner_name', 'category', 'location', 'priority_need', 'created_at'],
-  [SHEETS.teams]: ['id', 'name', 'campus_id', 'umkm_id', 'progress', 'status', 'reports', 'outputs', 'attendance', 'created_at'],
+  [SHEETS.teams]: ['id', 'name', 'campus_id', 'umkm_id', 'progress', 'status', 'reports', 'outputs', 'attendance', 'created_at', 'program_year'],
   [SHEETS.teamMembers]: ['id', 'team_id', 'name', 'campus_id', 'email', 'created_at'],
   [SHEETS.courses]: ['id', 'title', 'description', 'start_date', 'end_date', 'created_at'],
   [SHEETS.learningModules]: ['id', 'course_id', 'title', 'date', 'status', 'progress', 'materials', 'assignment', 'quiz_average', 'created_at'],
@@ -56,6 +56,81 @@ function bootstrap() {
 
 function setupMonitoring() {
   return bootstrap_();
+}
+
+function setup2026Roster() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error('Migrasi sedang dijalankan. Coba lagi.');
+  try {
+    const ss = getSpreadsheet_();
+    [SHEETS.campuses, SHEETS.umkms, SHEETS.teams, SHEETS.teamMembers].forEach((name) => ensureSheet_(ss, name, SCHEMAS[name]));
+    const roster = get2026Roster_();
+    const existing = {};
+    [SHEETS.campuses, SHEETS.umkms, SHEETS.teams, SHEETS.teamMembers].forEach((name) => {
+      existing[name] = new Set(readObjects_(ss.getSheetByName(name)).map((row) => String(row.id)));
+    });
+    const created = { campuses: 0, umkms: 0, teams: 0, members: 0 };
+    const now = now_();
+    roster.forEach((team) => {
+      if (!existing[SHEETS.campuses].has(team.campusId)) {
+        appendObject_(SHEETS.campuses, { id: team.campusId, name: team.campus, pic: '', created_at: now });
+        existing[SHEETS.campuses].add(team.campusId);
+        created.campuses++;
+      }
+      if (!existing[SHEETS.umkms].has(team.umkmId)) {
+        appendObject_(SHEETS.umkms, { id: team.umkmId, business_name: team.umkm, owner_name: '', category: team.category, location: '', priority_need: '', created_at: now });
+        existing[SHEETS.umkms].add(team.umkmId);
+        created.umkms++;
+      }
+      if (!existing[SHEETS.teams].has(team.id)) {
+        appendObject_(SHEETS.teams, { id: team.id, name: team.name, campus_id: team.campusId, umkm_id: team.umkmId, progress: 0, status: 'aman', reports: 0, outputs: 0, attendance: 0, created_at: now, program_year: 2026 });
+        existing[SHEETS.teams].add(team.id);
+        created.teams++;
+      }
+      team.members.forEach((name, index) => {
+        const id = team.id + '-member-' + (index + 1);
+        if (existing[SHEETS.teamMembers].has(id)) return;
+        appendObject_(SHEETS.teamMembers, { id: id, team_id: team.id, name: name, campus_id: team.campusId, email: '', created_at: now });
+        existing[SHEETS.teamMembers].add(id);
+        created.members++;
+      });
+    });
+    return { ok: true, created: created, message: 'Roster 2026 siap. Data lama tidak dihapus.' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function get2026Roster_() {
+  const campuses = [
+    ['unmuh', 'Universitas Muhammadiyah Bangka Belitung'],
+    ['iain', 'IAIN Syaikh Abdurrahman Siddik Bangka Belitung'],
+    ['pertiba', 'Universitas Pertiba'],
+    ['unaba', 'Universitas Anak Bangsa'],
+    ['ubb', 'Universitas Bangka Belitung'],
+  ];
+  const rows = [
+    [0, 1, 'Batik Kampung Dul', 'Batik', ['M. Rangga Putra Kelana', 'Maya Fransiska', 'Iqmal Prakoso']],
+    [0, 2, 'Batik Deshanda', 'Batik', ['Lafadz Umama Al Istiqna', 'Misasi', 'Ridho Winanda']],
+    [1, 1, 'Batik Asdarya', 'Batik', ['Ruhana', 'Novela Citra', 'Renata Putri']],
+    [1, 2, 'Fiya Batik Tulis', 'Batik', ['Yuliana', 'Sandaria', 'Nasrullah']],
+    [2, 1, 'Shanti Tenun Bangka Kreatif', 'Tenun', ['Fitrianty Anggriana', 'Regina Awaliyan', 'Mira Apriani']],
+    [2, 2, 'Batik Kemuning', 'Batik', ['M. Dimas Frayoga', 'Novela Safitri', 'Riski Alamsyah']],
+    [3, 1, 'My Botanical Eco Print Bangka', 'Ecoprint', ['Dara', 'Riko', 'Dewangga Prasetyo']],
+    [3, 2, 'Shinta Cual', 'Cual', ['Adelliya Lestari', 'Gustria', 'Ayi Mareza']],
+    [4, 1, 'Sendi Cual', 'Cual', ['Ninda', 'Moresha', 'Evelyn']],
+    [4, 2, 'SBA Cual Bangka', 'Cual', ['M. Dafit', 'Meliya', 'Iren Ajeng']],
+  ];
+  return rows.map((row) => ({
+    id: 'byp26-' + campuses[row[0]][0] + '-' + row[1],
+    name: 'Tim ' + row[1],
+    campusId: 'byp26-campus-' + campuses[row[0]][0],
+    campus: campuses[row[0]][1],
+    umkmId: 'byp26-umkm-' + campuses[row[0]][0] + '-' + row[1],
+    umkm: row[2],
+    category: row[3],
+    members: row[4],
+  }));
 }
 
 function testBackend() {
@@ -115,8 +190,7 @@ function bootstrap_() {
   const ss = getSpreadsheet_();
   Object.keys(SCHEMAS).forEach((sheetName) => ensureSheet_(ss, sheetName, SCHEMAS[sheetName]));
   const drive = ensureRootFolderSafe_();
-  // Demo records are opt-in and never inserted by a normal login or read.
-  if (PropertiesService.getScriptProperties().getProperty('ENABLE_DEMO_SEED') === 'true') seedIfEmpty_(ss);
+  // A manual roster migration is required; bootstrap never inserts sample participants.
   audit_('system', 'bootstrap', 'spreadsheet', MONITORING_SPREADSHEET_ID, {});
   return {
     ok: true,
@@ -131,7 +205,7 @@ function getData_(payload) {
   const ss = getSpreadsheet_();
   const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses));
   const umkms = readObjects_(ss.getSheetByName(SHEETS.umkms));
-  const teams = scopeTeamsForProfile_(profile, readObjects_(ss.getSheetByName(SHEETS.teams)));
+  const teams = scopeTeamsForProfile_(profile, readObjects_(ss.getSheetByName(SHEETS.teams)).filter((team) => String(team.program_year) === '2026' || String(team.id).startsWith('byp26-')));
   const teamIds = teams.map((team) => team.id);
   const members = readObjects_(ss.getSheetByName(SHEETS.teamMembers));
   const mentors = buildMentors_(ss, profile, teams);

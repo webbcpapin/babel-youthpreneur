@@ -9,7 +9,7 @@ const source = readFileSync(new URL('../apps-script/monitoring-backend.gs', impo
 function backend() {
   const tables = {
     AppUsers: [{ id: 'u1', email: 'student@example.test', name: 'Student', role: 'mahasiswa', team_id: 't1', status: 'active' }],
-    Teams: [{ id: 't1', campus_id: 'c1', umkm_id: 'm1', reports: 99, outputs: 99 }, { id: 't2', campus_id: 'c2', umkm_id: 'm2' }],
+    Teams: [{ id: 't1', campus_id: 'c1', umkm_id: 'm1', program_year: 2026, reports: 99, outputs: 99 }, { id: 't2', campus_id: 'c2', umkm_id: 'm2', program_year: 2026 }],
     Sessions: [{ id: 's1', user_id: 'u1', token_hash: 'hash-token', expires_at: new Date(Date.now() + 3600000), revoked_at: '' }],
     WeeklyReports: [], Outputs: [], Campuses: [], UMKM: [], TeamMembers: [], ChallengeScores: [], AuditLogs: [],
   }
@@ -35,6 +35,24 @@ function backend() {
 }
 
 const report = { session_token: 'token', team_id: 't1', week: 1, activity: 'Visit', progress: 'Profile completed', request_id: 'request-1' }
+
+test('2026 roster contains 10 pairings and 30 distinct students; migration is idempotent', () => {
+  const b = backend()
+  const roster = b.context.get2026Roster_()
+  assert.equal(roster.length, 10)
+  assert.equal(new Set(roster.flatMap((team) => team.members)).size, 30)
+  assert.equal(new Set(roster.map((team) => team.id)).size, 10)
+  assert.deepEqual(Array.from(roster.map((team) => team.umkm)), [
+    'Batik Kampung Dul', 'Batik Deshanda', 'Batik Asdarya', 'Fiya Batik Tulis',
+    'Shanti Tenun Bangka Kreatif', 'Batik Kemuning', 'My Botanical Eco Print Bangka',
+    'Shinta Cual', 'Sendi Cual', 'SBA Cual Bangka',
+  ])
+  b.context.ensureSheet_ = () => {}
+  assert.equal(b.context.setup2026Roster().created.teams, 10)
+  assert.equal(b.context.setup2026Roster().created.teams, 0)
+  assert.equal(b.tables.TeamMembers.length, 30)
+  assert.equal(b.tables.Teams.length, 12)
+})
 
 test('private reads reject missing sessions before writes or bootstrap', () => {
   const b = backend()
