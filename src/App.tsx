@@ -27,7 +27,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register/mahasiswa" element={<RegisterMahasiswaPage />} />
       <Route path="/register/umkm" element={<RegisterUmkmPage />} />
-      {(['universitas', 'juri', 'kemenkeu'] as const).map((kind) => (
+      {(['dosen', 'universitas', 'juri', 'kemenkeu'] as const).map((kind) => (
         <Route key={kind} path={`/register/${kind}`} element={<RegistrationForm key={kind} profile={REGISTRATION_PROFILES[kind]} />} />
       ))}
       <Route path="/evaluasi" element={<EvaluasiPage />} />

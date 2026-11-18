@@ -6,6 +6,13 @@ export const REGISTRATION_PROFILES = {
     notePlaceholder: 'Program studi, tim, atau informasi relevan',
     accessNote: 'Akses monitoring tim diberikan setelah admin memverifikasi akun dan menetapkan tim.',
   },
+  dosen: {
+    role: 'dosen', label: 'Dosen', title: 'Pendaftaran Dosen Pendamping',
+    subtitle: 'Daftarkan akun Google dosen pendamping untuk pemantauan tim di kampus Anda.',
+    institutionLabel: 'Kampus', institutionPlaceholder: 'Nama perguruan tinggi',
+    notePlaceholder: 'Nama tim dampingan atau informasi penugasan',
+    accessNote: 'Akses dosen baru aktif setelah admin memverifikasi identitas dan menetapkan kampus.',
+  },
   umkm: {
     role: 'umkm', label: 'UMKM', title: 'Pendaftaran UMKM',
     subtitle: 'Lengkapi data UMKM agar panitia dapat memetakan kebutuhan pendampingan dan memverifikasi akses.',

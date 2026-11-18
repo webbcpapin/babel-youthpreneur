@@ -22,7 +22,7 @@ import { prepareSubmission, saveSubmission, type SubmissionAttempt } from './sub
 import './MonitoringPage.css'
 
 type Role = 'admin' | 'dosen' | 'mahasiswa' | 'umkm' | 'juri' | 'viewer'
-type View = 'dashboard' | 'learning' | 'attendance' | 'weekly' | 'outputs' | 'challenge' | 'pendamping' | 'reports'
+type View = 'dashboard' | 'learning' | 'attendance' | 'weekly' | 'outputs' | 'challenge' | 'pendamping' | 'approvals' | 'reports'
 type TeamStatus = 'aman' | 'perlu_perhatian' | 'kritis'
 type OutputStatus = 'draft' | 'submitted' | 'revision' | 'approved'
 
@@ -50,16 +50,9 @@ type Team = {
   attendance: number
 }
 
-type LearningModule = {
-  id: string
-  title: string
-  date: string
-  status: 'Belum mulai' | 'Berjalan' | 'Selesai'
-  progress: number
-  materials: string[]
-  assignment: string
-  quizAverage: number
-}
+type LearningModule = { id: string; title: string; date: string; materialName: string; materialUrl: string }
+type AttendanceSession = { id: string; title: string; token: string; startsAt: string; endsAt: string; location: string }
+type AttendanceRecord = { id: string; sessionId: string; teamId: string; name: string; status: string; submittedAt: string; photoUrl: string }
 
 type WeeklyReport = {
   id: string
@@ -105,6 +98,9 @@ type Mentor = {
 
 type MonitoringData = {
   teams: Team[]
+  learningModules: LearningModule[]
+  attendanceSessions: AttendanceSession[]
+  attendanceRecords: AttendanceRecord[]
   reports: WeeklyReport[]
   outputs: OutputItem[]
   scores: Score[]
@@ -118,51 +114,7 @@ type BackendStatus = {
 }
 
 
-const learningModules: LearningModule[] = [
-  {
-    id: 'm1',
-    title: 'Entrepreneurship',
-    date: '18 November 2026 · Finalia',
-    status: 'Belum mulai',
-    progress: 0,
-    materials: ['Kisah usaha Tanahwari', 'Branding', 'Business pitching'],
-    assignment: 'Petakan potensi dan kebutuhan UMKM pasangan',
-    quizAverage: 0,
-  },
-  {
-    id: 'm2',
-    title: 'Digital Marketing Media Sosial dan Monetisasi',
-    date: '18 November 2026 · Enti Hidayati',
-    status: 'Belum mulai',
-    progress: 0,
-    materials: ['Instagram Business', 'Konten promosi', 'Monetisasi'],
-    assignment: 'Analisis awal kanal digital UMKM',
-    quizAverage: 0,
-  },
-  {
-    id: 'm3',
-    title: 'Product Catalog, Foto dan Video Promosi',
-    date: '18 November 2026 · Cento Sadewa',
-    status: 'Belum mulai',
-    progress: 0,
-    materials: ['Katalog produk', 'Fotografi produk', 'Video promosi'],
-    assignment: 'Rancang katalog produk UMKM',
-    quizAverage: 0,
-  },
-  {
-    id: 'm4',
-    title: 'Optimalisasi AI untuk UMKM',
-    date: '18 November 2026 · Lereng Cahyo Handoko',
-    status: 'Belum mulai',
-    progress: 0,
-    materials: ['AI untuk konten', 'Analisis pasar', 'Strategi digital'],
-    assignment: 'Susun rekomendasi ide bisnis yang sesuai UMKM',
-    quizAverage: 0,
-  },
-]
-
-
-const emptyMonitoringData: MonitoringData = { teams: [], reports: [], outputs: [], scores: [], mentors: [] }
+const emptyMonitoringData: MonitoringData = { teams: [], learningModules: [], attendanceSessions: [], attendanceRecords: [], reports: [], outputs: [], scores: [], mentors: [] }
 
 const navItems: Array<{ key: View; label: string; icon: typeof Gauge }> = [
   { key: 'dashboard', label: 'Dashboard', icon: Gauge },
@@ -172,6 +124,7 @@ const navItems: Array<{ key: View; label: string; icon: typeof Gauge }> = [
   { key: 'outputs', label: 'Output', icon: UploadCloud },
   { key: 'challenge', label: 'Challenge', icon: Medal },
   { key: 'pendamping', label: 'Pendamping', icon: Users },
+  { key: 'approvals', label: 'Persetujuan Akun', icon: ClipboardCheck },
   { key: 'reports', label: 'Export', icon: FileSpreadsheet },
 ]
 
@@ -210,6 +163,9 @@ async function fetchGoogleData(): Promise<MonitoringData> {
   const teamIds = new Set(teams.map((team) => team.id))
   return {
     teams,
+    learningModules: (payload.learningModules as LearningModule[] | undefined) ?? [],
+    attendanceSessions: (payload.attendanceSessions as AttendanceSession[] | undefined) ?? [],
+    attendanceRecords: (payload.attendanceRecords as AttendanceRecord[] | undefined) ?? [],
     reports: ((payload.reports as WeeklyReport[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
     outputs: ((payload.outputs as OutputItem[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
     scores: ((payload.scores as Score[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
@@ -230,7 +186,7 @@ function toMonitoringRole(role: string): Role {
 
 function MonitoringPage() {
   const { profile: authProfile, logout } = useAuth()
-  const [view, setView] = useState<View>('dashboard')
+  const [view, setView] = useState<View>(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').has('attendance') ? 'attendance' : 'dashboard')
   const [query, setQuery] = useState('')
   const [data, setData] = useState<MonitoringData>(emptyMonitoringData)
   const [loadAttempt, setLoadAttempt] = useState(0)
@@ -292,7 +248,7 @@ function MonitoringPage() {
           </div>
 
           <nav className="monitoring-nav" aria-label="Navigasi monitoring">
-            {navItems.filter((item) => item.key !== 'pendamping' || profile.role === 'admin' || profile.role === 'dosen').map((item) => {
+            {navItems.filter((item) => (item.key !== 'pendamping' || profile.role === 'admin' || profile.role === 'dosen') && (item.key !== 'approvals' || profile.role === 'admin')).map((item) => {
               const Icon = item.icon
               return (
                 <button className={view === item.key ? 'nav-button active' : 'nav-button'} key={item.key} onClick={() => setView(item.key)}>
@@ -340,12 +296,13 @@ function MonitoringPage() {
           {backendStatus.mode === 'error' && <button className="monitoring-button" onClick={() => { setBackendStatus((current) => ({ ...current, mode: 'loading', message: 'Memuat ulang data monitoring...' })); setLoadAttempt((value) => value + 1) }}>Coba muat ulang data</button>}
 
           {view === 'dashboard' && <Dashboard profile={profile} teams={scopedTeams} reports={data.reports} outputs={data.outputs} />}
-          {view === 'learning' && <LearningCenter profile={profile} />}
-          {view === 'attendance' && <AttendanceCenter profile={profile} teams={scopedTeams} />}
+          {view === 'learning' && <LearningCenter profile={profile} modules={data.learningModules} setData={setData} />}
+          {view === 'attendance' && <AttendanceCenter profile={profile} teams={scopedTeams} sessions={data.attendanceSessions} records={data.attendanceRecords} setData={setData} />}
           {view === 'weekly' && <WeeklyMonitoring profile={profile} teams={scopedTeams} reports={data.reports} setData={setData} />}
           {view === 'outputs' && <OutputTracker profile={profile} teams={scopedTeams} outputs={data.outputs} setData={setData} />}
           {view === 'challenge' && <ChallengeScoring profile={profile} teams={scopedTeams} scores={data.scores} />}
           {view === 'pendamping' && <MentorCenter profile={profile} mentors={data.mentors} teams={scopedTeams} />}
+          {view === 'approvals' && <ApprovalCenter />}
           {view === 'reports' && <ReportCenter profile={profile} teams={scopedTeams} />}
         </main>
       </div>
@@ -449,95 +406,117 @@ function Dashboard({ profile, teams: visibleTeams, reports: activeReports, outpu
   )
 }
 
-function LearningCenter({ profile }: { profile: Profile }) {
+function LearningCenter({ profile, modules, setData }: { profile: Profile; modules: LearningModule[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
   return (
     <div className="content-grid">
       <section className="hero-strip">
         <div>
           <p className="eyebrow">Learning Center</p>
           <h2>Pembekalan 18 November 2026</h2>
-          <p>Empat materi pelatihan resmi di Aula Lt. II Kanwil DJPb Bangka Belitung. Batas pengumpulan karya challenge: 9 Desember 2026.</p>
+          <p>Materi narasumber yang sudah diterima panitia. Batas pengumpulan karya challenge: 9 Desember 2026.</p>
         </div>
         <GraduationCap size={96} color="#0f766e" />
       </section>
       <section className="learning-grid">
-        {learningModules.map((module, index) => (
-          <article className="learning-card" key={module.id}>
-            <div className="module-head">
-              <div className="module-number">{String(index + 1).padStart(2, '0')}</div>
-              <div>
-                <span className={`status-pill ${module.status === 'Selesai' ? 'selesai' : 'submitted'}`}>{module.status}</span>
-                <h3>{module.title}</h3>
-                <p>{module.date}</p>
-              </div>
-            </div>
-            <div className="bar">
-              <span style={{ width: `${module.progress}%` }} />
-            </div>
-            <div className="material-list">
-              {module.materials.map((material) => (
-                <span className="material-chip" key={material}>{material}</span>
-              ))}
-            </div>
-            <p className="muted">Fokus penerapan: {module.assignment}</p>
-            {profile.role === 'admin' && <button className="monitoring-button primary">Kelola Modul</button>}
-          </article>
-        ))}
+        {modules.map((module, index) => <ModuleCard key={module.id} module={module} index={index} canEdit={profile.role === 'admin'} setData={setData} />)}
+        {modules.length === 0 && <div className="empty-state">Modul belum tersedia. Admin perlu menjalankan setup2026Roster pada Apps Script terbaru.</div>}
       </section>
     </div>
   )
 }
 
-function AttendanceCenter({ profile, teams: visibleTeams }: { profile: Profile; teams: Team[] }) {
-  const attendanceRows = visibleTeams.map((team) => ({
-    team: team.name,
-    campus: team.campus,
-    students: team.members.join('; '),
-    umkm: team.umkm,
-    attendance: `${team.attendance}%`,
-    status: team.attendance >= 80 ? 'valid' : 'flagged_location',
-  }))
+function ModuleCard({ module, index, canEdit, setData }: { module: LearningModule; index: number; canEdit: boolean; setData: Dispatch<SetStateAction<MonitoringData>> }) {
+  const [url, setUrl] = useState(module.materialUrl)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
 
-  return (
-    <div className="content-grid">
-      <section className="attendance-grid">
-        <Metric label="Presensi Valid" value={`${Math.round(visibleTeams.reduce((sum, team) => sum + team.attendance, 0) / Math.max(1, visibleTeams.length))}%`} hint="Rata-rata tim" />
-        <Metric label="Pending Review" value={profile.role === 'admin' ? 3 : 0} hint="Butuh cek panitia" />
-        <Metric label="Duplikat" value={0} hint="Percobaan ulang" />
-      </section>
-      <section className="hero-strip">
-        <div>
-          <p className="eyebrow">QR Dinamis</p>
-          <h2>Mode Presentasi Presensi</h2>
-          <p>Produksi memakai Google Apps Script untuk token QR, validasi waktu, foto ke Google Drive, rekap ke Google Sheet, dan audit perangkat.</p>
-          <div className="button-row">
-            <button className="monitoring-button primary" disabled={profile.role !== 'admin'}>Buat Sesi Presensi</button>
-            <button className="monitoring-button">Scan QR</button>
-          </div>
-        </div>
-        <QrCode size={120} color="#0f766e" />
-      </section>
-      <section className="panel">
-        <div className="panel-title">
-          <h3>Rekap Presensi</h3>
-          <button className="monitoring-button" onClick={() => downloadCsv('attendance-recap.csv', attendanceRows)}>
-            <Download size={16} /> CSV
-          </button>
-        </div>
-        <div className="report-list">
-          {attendanceRows.map((row) => (
-            <article className="attendance-card" key={row.team}>
-              <div>
-                <strong>{row.team}</strong>
-                <p>{row.campus} - {row.umkm} - {row.attendance}</p>
-              </div>
-              <span className={`status-pill ${row.status}`}>{statusLabel(row.status)}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
-  )
+  async function save() {
+    const token = readStoredSession()?.token
+    if (!token || busy) return
+    setBusy(true)
+    setMessage('')
+    try {
+      const result = await postAction('saveModule', { session_token: token, module_id: module.id, material_url: url.trim() })
+      const materialUrl = String(result.materialUrl ?? '')
+      setData((current) => ({ ...current, learningModules: current.learningModules.map((item) => item.id === module.id ? { ...item, materialUrl } : item) }))
+      setMessage('Tautan materi tersimpan.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Tautan belum tersimpan.')
+    } finally { setBusy(false) }
+  }
+
+  return <article className="learning-card">
+    <div className="module-head"><div className="module-number">{String(index + 1).padStart(2, '0')}</div><div><h3>{module.title}</h3><p>{module.date}</p></div></div>
+    <p className="muted">{module.materialName}</p>
+    {module.materialUrl ? <a className="monitoring-button primary" href={module.materialUrl} target="_blank" rel="noopener noreferrer">Buka Materi</a> : <p className="muted">Tautan materi belum dipublikasikan.</p>}
+    {canEdit && <div className="module-editor"><label>URL Google Drive materi<input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://drive.google.com/..." /></label><button className="monitoring-button" onClick={() => { void save() }} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Tautan'}</button></div>}
+    {message && <p className="form-message" role="status">{message}</p>}
+  </article>
+}
+
+function currentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error('GPS tidak tersedia di perangkat ini.')); return }
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
+  })
+}
+
+async function jpegFromFile(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file)
+  const canvas = document.createElement('canvas')
+  const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height))
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  return canvas.toDataURL('image/jpeg', 0.7)
+}
+
+function AttendanceCenter({ profile, teams, sessions, records, setData }: { profile: Profile; teams: Team[]; sessions: AttendanceSession[]; records: AttendanceRecord[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
+  const [title, setTitle] = useState('Pelatihan Babel Youthpreneur 2026')
+  const [duration, setDuration] = useState(120)
+  const [token, setToken] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('attendance') ?? '')
+  const [photo, setPhoto] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function createSession() {
+    const sessionToken = readStoredSession()?.token
+    if (!sessionToken || busy) return
+    setBusy(true); setMessage('Memeriksa lokasi panitia...')
+    try {
+      const position = await currentPosition()
+      const result = await postAction('createAttendanceSession', { session_token: sessionToken, title: title.trim(), duration_minutes: duration, latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy_meters: position.coords.accuracy })
+      const session = result.session as AttendanceSession
+      setData((current) => ({ ...current, attendanceSessions: [session, ...current.attendanceSessions] }))
+      setMessage('Sesi dibuat. Bagikan tautan presensi kepada peserta di lokasi.')
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Sesi gagal dibuat.') }
+    finally { setBusy(false) }
+  }
+
+  async function submit() {
+    const sessionToken = readStoredSession()?.token
+    if (!sessionToken || busy || !photo || !token.trim()) return
+    setBusy(true); setMessage('Memeriksa GPS dan mengirim selfie...')
+    try {
+      const position = await currentPosition()
+      const result = await postAction('submitAttendance', { session_token: sessionToken, token: token.trim(), latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy_meters: position.coords.accuracy, photo_base64: photo })
+      const row = result.row as AttendanceRecord
+      setData((current) => ({ ...current, attendanceRecords: [row, ...current.attendanceRecords] }))
+      setPhoto('')
+      setMessage('Presensi berhasil dicatat.')
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Presensi belum berhasil.') }
+    finally { setBusy(false) }
+  }
+
+  const visibleRecords = records.filter((row) => teams.some((team) => team.id === row.teamId))
+  return <div className="content-grid">
+    <section className="hero-strip"><div><p className="eyebrow">Presensi Kegiatan</p><h2>Selfie dan Lokasi</h2><p>Identitas diambil dari akun Google yang telah disetujui. GPS presisi dan foto selfie diperlukan saat mengirim presensi.</p></div><QrCode size={96} color="#0f766e" /></section>
+    {profile.role === 'admin' && <section className="panel"><div className="panel-title"><h3>Buat Sesi Presensi</h3></div><div className="attendance-form"><label>Nama kegiatan<input value={title} onChange={(event) => setTitle(event.target.value)} /></label><label>Durasi (menit)<input type="number" min={15} max={480} value={duration} onChange={(event) => setDuration(Number(event.target.value))} /></label><button className="monitoring-button primary" disabled={busy || !title.trim()} onClick={() => { void createSession() }}>Buat Sesi di Lokasi Ini</button></div><p className="muted">Lokasi perangkat panitia menjadi titik presensi. Radius 250 m, akurasi GPS maksimum 100 m.</p>{sessions.map((session) => <article className="attendance-card" key={session.id}><strong>{session.title}</strong><p>Berakhir {new Date(session.endsAt).toLocaleString('id-ID')}</p><p className="attendance-code">{session.token}</p><button className="monitoring-button" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/monitoring?attendance=${encodeURIComponent(session.token)}`) }}>Salin Tautan Presensi</button></article>)}</section>}
+    {profile.role === 'mahasiswa' && <section className="panel"><div className="panel-title"><h3>Isi Presensi</h3></div><div className="attendance-form"><label>Kode sesi<input value={token} onChange={(event) => setToken(event.target.value)} placeholder="Kode dari panitia" /></label><label>Foto selfie<input type="file" accept="image/*" capture="user" onChange={(event) => { const file = event.target.files?.[0]; if (file) void jpegFromFile(file).then(setPhoto).catch(() => setMessage('Foto tidak dapat diproses. Coba JPEG lain.')) }} /></label>{photo && <img className="attendance-preview" src={photo} alt="Pratinjau selfie" />}<button className="monitoring-button primary" disabled={busy || !token.trim() || !photo} onClick={() => { void submit() }}>Kirim Presensi</button></div></section>}
+    {message && <p className="form-message" role="status">{message}</p>}
+    <section className="panel"><div className="panel-title"><h3>Riwayat Presensi</h3>{profile.role === 'admin' && <button className="monitoring-button" onClick={() => downloadCsv('presensi-2026.csv', visibleRecords.map((row) => ({ nama: row.name, tim: teams.find((team) => team.id === row.teamId)?.name ?? '', sesi: row.sessionId, waktu: row.submittedAt, status: row.status, foto: row.photoUrl })))}><Download size={16} /> CSV</button>}</div><div className="report-list">{visibleRecords.length === 0 && <div className="empty-state">Belum ada presensi tercatat.</div>}{visibleRecords.map((row) => <article className="attendance-card" key={row.id}><strong>{row.name}</strong><p>{teams.find((team) => team.id === row.teamId)?.name ?? ''} · {new Date(row.submittedAt).toLocaleString('id-ID')}</p><span className="status-pill approved">{row.status}</span></article>)}</div></section>
+  </div>
 }
 
 function WeeklyMonitoring({ profile, teams: visibleTeams, reports: activeReports, setData }: { profile: Profile; teams: Team[]; reports: WeeklyReport[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
@@ -817,6 +796,92 @@ function ChallengeScoring({ profile, teams: visibleTeams, scores: activeScores }
   )
 }
 
+type ApprovalRegistration = { id: string; email: string; name: string; requestedRole: string; institution: string; whatsapp?: string; note?: string; suggestedAssignmentId?: string }
+type ApprovalCampus = { id: string; name: string }
+type ApprovalTeam = { id: string; name: string; campusId: string }
+
+function ApprovalCenter() {
+  const [queue, setQueue] = useState<ApprovalRegistration[]>([])
+  const [campuses, setCampuses] = useState<ApprovalCampus[]>([])
+  const [teams, setTeams] = useState<ApprovalTeam[]>([])
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [revision, setRevision] = useState(0)
+
+  useEffect(() => {
+    const token = readStoredSession()?.token
+    if (!token) return
+    let cancelled = false
+    postAction('getApprovalQueue', { session_token: token }).then((response) => {
+      if (cancelled) return
+      setQueue((response.registrations as ApprovalRegistration[]) ?? [])
+      setCampuses((response.campuses as ApprovalCampus[]) ?? [])
+      setTeams((response.teams as ApprovalTeam[]) ?? [])
+      setMessage('')
+    }).catch((error: unknown) => {
+      if (!cancelled) setMessage(error instanceof Error ? error.message : 'Antrean belum dapat dimuat.')
+    }).finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [revision])
+
+  async function approve(registrationId: string, role: string, assignmentId: string) {
+    const token = readStoredSession()?.token
+    if (!token) throw new Error('Sesi login tidak tersedia.')
+    await postAction('approveAccount', {
+      session_token: token,
+      registration_id: registrationId,
+      role,
+      campus_id: role === 'dosen' ? assignmentId : '',
+      team_id: role === 'dosen' ? '' : assignmentId,
+    })
+    setRevision((value) => value + 1)
+  }
+
+  return <section className="panel">
+    <div className="panel-title"><h3>Persetujuan Akun</h3><span className="muted">{queue.length} menunggu review</span></div>
+    <p className="muted">Role dan penugasan ditetapkan admin setelah memeriksa identitas pemohon. Pendaftaran tidak memberi akses otomatis.</p>
+    {loading && <p role="status">Memuat antrean...</p>}
+    {message && <p className="form-message" role="status">{message}</p>}
+    {!loading && queue.length === 0 && !message && <div className="empty-state">Tidak ada pendaftaran yang menunggu.</div>}
+    <div className="report-list">
+      {queue.map((item) => <ApprovalRow key={item.id} item={item} campuses={campuses} teams={teams} onApprove={approve} />)}
+    </div>
+  </section>
+}
+
+function ApprovalRow({ item, campuses, teams, onApprove }: { item: ApprovalRegistration; campuses: ApprovalCampus[]; teams: ApprovalTeam[]; onApprove: (id: string, role: string, assignmentId: string) => Promise<void> }) {
+  const supported = item.requestedRole === 'dosen' || item.requestedRole === 'mahasiswa' || item.requestedRole === 'ketua_tim'
+  const [role, setRole] = useState(item.requestedRole === 'ketua_tim' ? 'mahasiswa' : item.requestedRole)
+  const [assignmentId, setAssignmentId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const options = role === 'dosen' ? campuses : teams
+
+  async function submit() {
+    if (!assignmentId || busy) return
+    setBusy(true)
+    setError('')
+    try { await onApprove(item.id, role, assignmentId) }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'Persetujuan gagal.') }
+    finally { setBusy(false) }
+  }
+
+  return <article className="attendance-card approval-row">
+    <div><strong>{item.name}</strong><p>{item.email}</p><p className="muted">Daftar sebagai {item.requestedRole} · {item.institution || 'Instansi belum diisi'}</p>{item.whatsapp && <p className="muted">WhatsApp: {item.whatsapp}</p>}{item.note && <p className="muted">Catatan: {item.note}</p>}{item.suggestedAssignmentId && <p className="muted">Cocok roster: {campuses.find((campus) => campus.id === item.suggestedAssignmentId)?.name ?? teams.find((team) => team.id === item.suggestedAssignmentId)?.name ?? item.suggestedAssignmentId}</p>}</div>
+    {supported ? <div className="approval-controls">
+      <label>Role<select value={role} onChange={(event) => { setRole(event.target.value); setAssignmentId('') }} disabled={busy}>
+        {item.requestedRole === 'dosen' ? <option value="dosen">Dosen Pendamping</option> : <><option value="mahasiswa">Mahasiswa</option><option value="ketua_tim">Ketua Tim</option></>}
+      </select></label>
+      <label>{role === 'dosen' ? 'Kampus' : 'Tim'}<select value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)} disabled={busy}>
+        <option value="">Pilih {role === 'dosen' ? 'kampus' : 'tim'}</option>
+        {options.map((option) => <option value={option.id} key={option.id}>{option.name}{'campusId' in option ? ` (${campuses.find((campus) => campus.id === option.campusId)?.name ?? ''})` : ''}</option>)}
+      </select></label>
+      <button className="monitoring-button primary" onClick={() => { void submit() }} disabled={!assignmentId || busy}>{busy ? 'Memproses...' : 'Setujui Akun'}</button>
+    </div> : <p className="muted">Role ini perlu ditetapkan melalui proses admin khusus.</p>}
+    {error && <p className="form-message" role="status">{error}</p>}
+  </article>
+}
+
 function MentorCenter({ profile, mentors, teams: visibleTeams }: { profile: Profile; mentors: Mentor[]; teams: Team[] }) {
   if (profile.role !== 'admin' && profile.role !== 'dosen') {
     return <section className="panel"><div className="empty-state">Data pendamping hanya tersedia untuk Panitia dan Dosen.</div></section>
@@ -963,6 +1028,7 @@ function pageTitle(view: View) {
     outputs: 'Output UMKM',
     challenge: 'Challenge Scoring',
     pendamping: 'Data Pendamping',
+    approvals: 'Persetujuan Akun',
     reports: 'Pusat Laporan',
   }
   return titles[view]

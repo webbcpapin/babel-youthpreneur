@@ -914,3 +914,6 @@
     width: 100%;
   }
 }
+.approval-row{display:grid;gap:16px}.approval-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.approval-controls label{display:grid;gap:6px;min-width:190px;flex:1}.approval-controls select{min-width:0;width:100%}
+.module-editor{display:grid;gap:10px;margin-top:18px}.module-editor label{display:grid;gap:6px}.module-editor input{width:100%;min-width:0}
+.attendance-form{display:grid;gap:14px;max-width:520px}.attendance-form label{display:grid;gap:6px}.attendance-form input{width:100%;min-width:0}.attendance-preview{display:block;width:min(100%,320px);height:auto;max-height:280px;object-fit:contain}.attendance-code{font-weight:700;overflow-wrap:anywhere}

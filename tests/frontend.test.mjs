@@ -133,9 +133,10 @@ test('API expires session on server rejection and bounds request time', async ()
   await assert.rejects(() => request, { code: 'TIMEOUT' })
 })
 
-test('five registration profiles use the intended roles and institution fields', () => {
+test('six registration profiles use the intended roles and institution fields', () => {
   const { REGISTRATION_PROFILES: profiles } = loadTs('auth/registration-profiles.ts')
-  assert.deepEqual(Object.keys(profiles), ['mahasiswa', 'umkm', 'universitas', 'juri', 'kemenkeu'])
+  assert.deepEqual(Object.keys(profiles), ['mahasiswa', 'dosen', 'umkm', 'universitas', 'juri', 'kemenkeu'])
+  assert.equal(profiles.dosen.role, 'dosen')
   assert.equal(profiles.universitas.role, 'kampus_viewer')
   assert.equal(profiles.juri.role, 'juri')
   assert.equal(profiles.kemenkeu.role, 'pimpinan_viewer')
@@ -166,7 +167,7 @@ test('each registration form renders role-specific content with required consent
   }
 })
 
-test('login offers all five registration routes without needing an authenticated session', () => {
+test('login offers all six registration routes without needing an authenticated session', () => {
   const profiles = loadTs('auth/registration-profiles.ts')
   const Login = loadTs('auth/LoginPage.tsx', {}, {
     ...registrationImports,
