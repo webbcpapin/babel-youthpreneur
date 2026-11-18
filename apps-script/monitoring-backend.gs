@@ -27,7 +27,7 @@ const SCHEMAS = {
   [SHEETS.appUsers]: ['id', 'email', 'name', 'role', 'campus_id', 'team_id', 'umkm_id', 'status', 'created_at'],
   [SHEETS.campuses]: ['id', 'name', 'pic', 'created_at'],
   [SHEETS.umkms]: ['id', 'business_name', 'owner_name', 'category', 'location', 'priority_need', 'created_at'],
-  [SHEETS.teams]: ['id', 'name', 'campus_id', 'umkm_id', 'progress', 'status', 'reports', 'outputs', 'attendance', 'created_at', 'program_year'],
+  [SHEETS.teams]: ['id', 'name', 'campus_id', 'umkm_id', 'progress', 'status', 'reports', 'outputs', 'attendance', 'created_at', 'program_year', 'nickname'],
   [SHEETS.teamMembers]: ['id', 'team_id', 'name', 'campus_id', 'email', 'created_at'],
   [SHEETS.courses]: ['id', 'title', 'description', 'start_date', 'end_date', 'created_at'],
   [SHEETS.learningModules]: ['id', 'course_id', 'title', 'date', 'status', 'progress', 'materials', 'assignment', 'quiz_average', 'created_at'],
@@ -73,23 +73,32 @@ function setup2026Roster() {
     const now = now_();
     roster.forEach((team) => {
       if (!existing[SHEETS.campuses].has(team.campusId)) {
-        appendObject_(SHEETS.campuses, { id: team.campusId, name: team.campus, pic: '', created_at: now });
+        appendObject_(SHEETS.campuses, { id: team.campusId, name: team.campus, pic: team.lecturer, created_at: now });
         existing[SHEETS.campuses].add(team.campusId);
         created.campuses++;
+      } else {
+        updateObjectById_(SHEETS.campuses, team.campusId, { name: team.campus, pic: team.lecturer });
       }
       if (!existing[SHEETS.umkms].has(team.umkmId)) {
         appendObject_(SHEETS.umkms, { id: team.umkmId, business_name: team.umkm, owner_name: '', category: team.category, location: '', priority_need: '', created_at: now });
         existing[SHEETS.umkms].add(team.umkmId);
         created.umkms++;
+      } else {
+        updateObjectById_(SHEETS.umkms, team.umkmId, { business_name: team.umkm, category: team.category });
       }
       if (!existing[SHEETS.teams].has(team.id)) {
-        appendObject_(SHEETS.teams, { id: team.id, name: team.name, campus_id: team.campusId, umkm_id: team.umkmId, progress: 0, status: 'aman', reports: 0, outputs: 0, attendance: 0, created_at: now, program_year: 2026 });
+        appendObject_(SHEETS.teams, { id: team.id, name: team.name, nickname: team.nickname, campus_id: team.campusId, umkm_id: team.umkmId, progress: 0, status: 'aman', reports: 0, outputs: 0, attendance: 0, created_at: now, program_year: 2026 });
         existing[SHEETS.teams].add(team.id);
         created.teams++;
+      } else {
+        updateObjectById_(SHEETS.teams, team.id, { name: team.name, nickname: team.nickname, campus_id: team.campusId, umkm_id: team.umkmId, program_year: 2026 });
       }
       team.members.forEach((name, index) => {
         const id = team.id + '-member-' + (index + 1);
-        if (existing[SHEETS.teamMembers].has(id)) return;
+        if (existing[SHEETS.teamMembers].has(id)) {
+          updateObjectById_(SHEETS.teamMembers, id, { name: name, campus_id: team.campusId });
+          return;
+        }
         appendObject_(SHEETS.teamMembers, { id: id, team_id: team.id, name: name, campus_id: team.campusId, email: '', created_at: now });
         existing[SHEETS.teamMembers].add(id);
         created.members++;
@@ -103,33 +112,35 @@ function setup2026Roster() {
 
 function get2026Roster_() {
   const campuses = [
-    ['unmuh', 'Universitas Muhammadiyah Bangka Belitung'],
-    ['iain', 'IAIN Syaikh Abdurrahman Siddik Bangka Belitung'],
-    ['pertiba', 'Universitas Pertiba'],
-    ['unaba', 'Universitas Anak Bangsa'],
-    ['ubb', 'Universitas Bangka Belitung'],
+    ['unmuh', 'Universitas Muhammadiyah Bangka Belitung', 'Isti Widiharjanti, S.E.I., M.M'],
+    ['iain', 'IAIN Syaikh Abdurrahman Siddik Bangka Belitung', 'Rifyal Zuhdi Gultom, S.E., M.SEI.'],
+    ['pertiba', 'Universitas Pertiba', 'Nelly Astuti, S.E., M.M.'],
+    ['unaba', 'Universitas Anak Bangsa', 'Yunita Maharani, S.E., M.Si'],
+    ['ubb', 'Universitas Bangka Belitung', 'Tiara Fitari, M.B.A'],
   ];
   const rows = [
-    [0, 1, 'Batik Kampung Dul', 'Batik', ['M. Rangga Putra Kelana', 'Maya Fransiska', 'Iqmal Prakoso']],
-    [0, 2, 'Batik Deshanda', 'Batik', ['Lafadz Umama Al Istiqna', 'Misasi', 'Ridho Winanda']],
-    [1, 1, 'Batik Asdarya', 'Batik', ['Ruhana', 'Novela Citra', 'Renata Putri']],
-    [1, 2, 'Fiya Batik Tulis', 'Batik', ['Yuliana', 'Sandaria', 'Nasrullah']],
-    [2, 1, 'Shanti Tenun Bangka Kreatif', 'Tenun', ['Fitrianty Anggriana', 'Regina Awaliyan', 'Mira Apriani']],
-    [2, 2, 'Batik Kemuning', 'Batik', ['M. Dimas Frayoga', 'Novela Safitri', 'Riski Alamsyah']],
-    [3, 1, 'My Botanical Eco Print Bangka', 'Ecoprint', ['Dara', 'Riko', 'Dewangga Prasetyo']],
-    [3, 2, 'Shinta Cual', 'Cual', ['Adelliya Lestari', 'Gustria', 'Ayi Mareza']],
-    [4, 1, 'Sendi Cual', 'Cual', ['Ninda', 'Moresha', 'Evelyn']],
-    [4, 2, 'SBA Cual Bangka', 'Cual', ['M. Dafit', 'Meliya', 'Iren Ajeng']],
+    [0, 1, 'LOKALINK', 'Batik Kampung Dul', 'Batik', ['M. Rangga Putra Kelana', 'Maya Fransiska', 'Iqmal Prakoso']],
+    [0, 2, 'TRUNTUM', 'Batik Deshanda', 'Batik', ['Lafadz Umama Al Istiqna', 'Misasi', 'Ridho Winanda']],
+    [1, 1, 'Hanrevel', 'Batik Asdarya', 'Batik', ['Ruhana', 'Novela Citra', 'Renata Putri']],
+    [1, 2, 'SASFIA', 'Fiya Batik Tulis', 'Batik', ['Yuliana', 'Sandaria', 'Nasrullah']],
+    [2, 1, 'Go Green', "D'Bhori", '', ['Fitrianty Anggriana', 'Regina Awaliyah', 'Mira Apriani']],
+    [2, 2, 'Benang Merah', 'Batik Kemuning', 'Batik', ['Mohammad Dimas Frayoga', 'Novela Safitri', 'Riski Alamsyah']],
+    [3, 1, 'FloraTrace', 'My Botanical Eco Print Bangka', 'Ecoprint', ['Dara', 'Riko', 'Dewangga Prasetio']],
+    [3, 2, 'DigiScoral Squad', 'Shinta Cual', 'Cual', ['Adelliya Lestari', 'Gustria', 'Ayi Mareza']],
+    [4, 1, 'Wastra Serumpun', 'Asti Rajutan dan Batik', 'Batik', ['Ninda', 'Moresha Jatman', 'Evelyn Gracia']],
+    [4, 2, 'The Sandau', 'SBA Cual Bangka', 'Cual', ['Muhammad Dafit', 'Meliya', 'Iren Ajeng']],
   ];
   return rows.map((row) => ({
     id: 'byp26-' + campuses[row[0]][0] + '-' + row[1],
     name: 'Tim ' + row[1],
+    nickname: row[2],
     campusId: 'byp26-campus-' + campuses[row[0]][0],
     campus: campuses[row[0]][1],
+    lecturer: campuses[row[0]][2],
     umkmId: 'byp26-umkm-' + campuses[row[0]][0] + '-' + row[1],
-    umkm: row[2],
-    category: row[3],
-    members: row[4],
+    umkm: row[3],
+    category: row[4],
+    members: row[5],
   }));
 }
 
@@ -222,6 +233,7 @@ function getData_(payload) {
       return {
         id: team.id,
         name: team.name,
+        nickname: team.nickname || '',
         campusId: team.campus_id || '',
         campus: campus.name || '',
         umkmId: team.umkm_id || '',
@@ -451,7 +463,7 @@ function buildMentors_(ss, profile, scopedTeams) {
   const campusNameById = {};
   campuses.forEach((campus) => { campusNameById[campus.id] = campus.name || ''; });
 
-  return readObjects_(ss.getSheetByName(SHEETS.appUsers))
+  const accountMentors = readObjects_(ss.getSheetByName(SHEETS.appUsers))
     .filter((user) => ['dosen', 'admin_panitia', 'admin', 'super_admin'].includes(String(user.role || '').toLowerCase()))
     .filter((user) => {
       if (isAdminRole_(profile.role)) return true;
@@ -472,6 +484,21 @@ function buildMentors_(ss, profile, scopedTeams) {
         status: String(user.status || '').toLowerCase() === 'active' ? 'aktif' : 'perlu_penugasan',
       };
     });
+  const listedLecturers = campuses
+    .filter((campus) => String(campus.id || '').startsWith('byp26-campus-') && campus.pic)
+    .filter((campus) => isAdminRole_(profile.role) || String(campus.id) === profile.campusId)
+    .filter((campus) => !accountMentors.some((mentor) => mentor.role === 'dosen' && mentor.campus === campus.name && mentor.name === campus.pic))
+    .map((campus) => ({
+      id: 'lecturer-' + campus.id,
+      name: campus.pic,
+      email: '',
+      role: 'dosen',
+      campus: campus.name,
+      specialization: 'Pendamping akademik dan implementasi lapangan',
+      assignedTeams: scopedTeams.filter((team) => String(team.campus_id) === String(campus.id)).length,
+      status: 'perlu_penugasan',
+    }));
+  return accountMentors.concat(listedLecturers);
 }
 
 function scopeTeamsForProfile_(profile, teams) {

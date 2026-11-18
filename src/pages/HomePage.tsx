@@ -10,17 +10,18 @@ const agenda = [
   ['15 Desember', 'Final Showcase', 'Presentasi hasil pendampingan dan penilaian akhir.'],
 ]
 const speakers = [
-  ['Finalia', 'Owner UMKM Tanahwari', 'Entrepreneurship'],
+  ['Yang Finalia', 'Owner Tanahwari', 'Entrepreneurship'],
+  ['Aris Rochmad Sopyan', 'Kepala KPKNL Pangkalpinang', 'Narasumber program'],
   ['Enti Hidayati', 'Konten kreator', 'Digital Marketing Media Sosial dan Monetisasi'],
   ['Cento Sadewa', 'Creative Director MNJD Creative', 'Product Catalog, Foto dan Video Promosi Produk'],
   ['Lereng Cahyo Handoko', 'Founder Gerai Digitals', 'Optimalisasi Artificial Intelligence (AI) untuk UMKM'],
 ]
 const pairings = [
-  ['Universitas Muhammadiyah Bangka Belitung', 'Batik Kampung Dul', 'Batik Deshanda'],
-  ['IAIN Syaikh Abdurrahman Siddik', 'Batik Asdarya', 'Fiya Batik Tulis'],
-  ['Universitas Pertiba', 'Shanti Tenun Bangka Kreatif', 'Batik Kemuning'],
-  ['Universitas Anak Bangsa', 'My Botanical Eco Print Bangka', 'Shinta Cual'],
-  ['Universitas Bangka Belitung', 'Sendi Cual', 'SBA Cual Bangka'],
+  ['Universitas Muhammadiyah Bangka Belitung', 'LOKALINK · Batik Kampung Dul', 'TRUNTUM · Batik Deshanda'],
+  ['IAIN Syaikh Abdurrahman Siddik', 'Hanrevel · Batik Asdarya', 'SASFIA · Fiya Batik Tulis'],
+  ['Universitas Pertiba', "Go Green · D'Bhori", 'Benang Merah · Batik Kemuning'],
+  ['Universitas Anak Bangsa', 'FloraTrace · My Botanical Eco Print Bangka', 'DigiScoral Squad · Shinta Cual'],
+  ['Universitas Bangka Belitung', 'Wastra Serumpun · Asti Rajutan dan Batik', 'The Sandau · SBA Cual Bangka'],
 ]
 export default function HomePage() {
   return <div className="home26"><Navigation /><main>
@@ -37,7 +38,7 @@ export default function HomePage() {
       <div className="home26-columns"><div><h3>Untuk mahasiswa</h3><p>Belajar dari praktisi, menganalisis kebutuhan mitra, lalu menghasilkan karya bersama satu UMKM.</p></div><div><h3>Untuk UMKM</h3><p>Mendapat pendampingan digital branding, optimalisasi media sosial dan marketplace, katalog produk, serta rekomendasi pengembangan usaha.</p></div><div><h3>Untuk pendamping</h3><p>Memantau laporan, hasil kerja, dan kendala tiap tim melalui Monitoring System.</p></div></div>
     </div></section>
     <section className="home26-section home26-dark" id="timeline"><div className="home26-inner"><p className="home26-kicker">Agenda 2026</p><h2>Perjalanan program</h2><div className="home26-timeline">{agenda.map(([date,title,body]) => <article key={date}><time>{date} 2026</time><h3>{title}</h3><p>{body}</p></article>)}</div><p className="home26-note">Pelatihan: Rabu, 18 November 2026, Aula Lt. II Kanwil DJPb Bangka Belitung, Pangkalpinang.</p></div></section>
-    <section className="home26-section" id="narasumber"><div className="home26-inner"><p className="home26-kicker">Pelatihan 18 November</p><h2>Narasumber dan materi</h2><div className="home26-grid">{speakers.map(([name,role,topic]) => <article key={name}><span>{topic}</span><h3>{name}</h3><p>{role}</p></article>)}</div><a className="home26-textlink" href="https://www.instagram.com/p/Df1uVbjExTl/" target="_blank" rel="noreferrer">Lihat publikasi kegiatan di Instagram</a></div></section>
+    <section className="home26-section" id="narasumber"><div className="home26-inner"><p className="home26-kicker">Pelatihan 18 November</p><h2>Narasumber dan materi</h2><div className="home26-grid">{speakers.map(([name,role,topic]) => <article key={name}><span>{topic}</span><h3>{name}</h3><p>{role}</p></article>)}</div><div className="home26-posters"><img src="/images/byp-2026-speakers.webp" alt="Lima narasumber Babel Youthpreneur 2026" loading="lazy" /><img src="/images/byp-2026-speakers-1.webp" alt="Enti Hidayati dan Yang Finalia beserta materi pelatihan" loading="lazy" /><img src="/images/byp-2026-speakers-2.webp" alt="Cento Sadewa dan Lereng Cahyo Handoko beserta materi pelatihan" loading="lazy" /></div><a className="home26-textlink" href="https://www.instagram.com/p/Df1uVbjExTl/" target="_blank" rel="noreferrer">Lihat publikasi kegiatan di Instagram</a></div></section>
     <section className="home26-section home26-soft" id="umkm"><div className="home26-inner"><p className="home26-kicker">Kolaborasi mahasiswa dan UMKM</p><h2>Pairing 10 tim</h2><div className="home26-pairings">{pairings.map(([campus,first,second]) => <article key={campus}><h3>{campus}</h3><p>Tim 1 · {first}</p><p>Tim 2 · {second}</p></article>)}</div></div></section>
     <section className="home26-section" id="challenge"><div className="home26-inner"><p className="home26-kicker">Hasil pendampingan</p><h2>Tiga challenge, satu tujuan nyata</h2><div className="home26-columns"><div><h3>Digital Marketing Strategy</h3><p>Analisis kanal digital, optimalisasi Instagram Business, WhatsApp Business, dan marketplace; minimal tiga konten promosi.</p></div><div><h3>Best Catalog Product</h3><p>Katalog produk UMKM dalam PDF siap cetak, sepanjang 3–10 halaman.</p></div><div><h3>Best Innovative Business Idea</h3><p>Analisis masalah, potensi, dan rekomendasi ide bisnis yang realistis dalam PDF 3–5 halaman.</p></div></div><p className="home26-note">Batas pengumpulan dan konfirmasi kepada panitia: 9 Desember 2026.</p></div></section>
     <section className="home26-archive" id="kegiatan-2025"><div className="home26-inner home26-archive-inner"><div><p className="home26-kicker">Jejak program</p><h2>Babel Youthpreneur 2025</h2><p>Telusuri kegiatan, narasumber, UMKM mitra, hasil karya, evaluasi, dan dokumentasi edisi sebelumnya.</p><Link to="/kegiatan-2025">Lihat kegiatan 2025</Link></div><img src="/images/doc-opening-1.jpg" alt="Pembukaan Babel Youthpreneur 2025" loading="lazy" /></div></section>

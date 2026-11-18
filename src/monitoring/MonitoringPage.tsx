@@ -36,6 +36,7 @@ type Profile = {
 type Team = {
   id: string
   name: string
+  nickname?: string
   campus: string
   umkm: string
   members: string[]
@@ -273,7 +274,7 @@ function MonitoringPage() {
     const base = profile ? getScopedTeams(profile, data.teams) : []
     const cleanQuery = query.toLowerCase().trim()
     if (!cleanQuery) return base
-    return base.filter((team) => `${team.name} ${team.campus} ${team.umkm} ${team.members.join(' ')}`.toLowerCase().includes(cleanQuery))
+    return base.filter((team) => `${team.name} ${team.nickname ?? ''} ${team.campus} ${team.umkm} ${team.members.join(' ')}`.toLowerCase().includes(cleanQuery))
   }, [data.teams, profile, query])
 
   if (!profile) return null
@@ -858,6 +859,7 @@ function ReportCenter({ profile, teams: visibleTeams }: { profile: Profile; team
 
   const rows = visibleTeams.map((team) => ({
     tim: team.name,
+    julukan: team.nickname ?? '',
     kampus: team.campus,
     mahasiswa: team.members.join('; '),
     umkm: team.umkm,
@@ -925,13 +927,14 @@ function TeamList({ teams: visibleTeams }: { teams: Team[] }) {
             <div className="avatar">{initials(team.name)}</div>
             <div>
               <strong>{team.name}</strong>
+              {team.nickname && <span className="team-nickname">{team.nickname}</span>}
               <span>{team.campus}</span>
             </div>
           </div>
           <div>
             <span>UMKM Dampingan</span>
             <strong>{team.umkm}</strong>
-            <span>{team.umkmCategory} - {team.umkmOwner}</span>
+            <span>{[team.umkmCategory, team.umkmOwner].filter(Boolean).join(' - ')}</span>
           </div>
           <div>
             <span>Progress</span>

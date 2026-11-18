@@ -28,6 +28,12 @@ function backend() {
   vm.runInContext(source, context)
   context.readObjects_ = (sheet) => tables[sheet?.name] ?? []
   context.appendObject_ = (name, row) => { (tables[name] ??= []).push({ ...row }) }
+  context.updateObjectById_ = (name, id, patch) => {
+    const row = (tables[name] ?? []).find((item) => item.id === id)
+    if (!row) return false
+    Object.assign(row, patch)
+    return true
+  }
   context.hashToken_ = (token) => token === 'token' ? 'hash-token' : createHash('sha256').update(token).digest('hex')
   context.bootstrap_ = () => { bootstrapCalls++; throw new Error('Unexpected bootstrap') }
   context.verifyGoogleIdToken_ = () => ({ ok: true, email: 'student@example.test' })
@@ -44,14 +50,20 @@ test('2026 roster contains 10 pairings and 30 distinct students; migration is id
   assert.equal(new Set(roster.map((team) => team.id)).size, 10)
   assert.deepEqual(Array.from(roster.map((team) => team.umkm)), [
     'Batik Kampung Dul', 'Batik Deshanda', 'Batik Asdarya', 'Fiya Batik Tulis',
-    'Shanti Tenun Bangka Kreatif', 'Batik Kemuning', 'My Botanical Eco Print Bangka',
-    'Shinta Cual', 'Sendi Cual', 'SBA Cual Bangka',
+    "D'Bhori", 'Batik Kemuning', 'My Botanical Eco Print Bangka',
+    'Shinta Cual', 'Asti Rajutan dan Batik', 'SBA Cual Bangka',
+  ])
+  assert.deepEqual(Array.from(roster.map((team) => team.nickname)), [
+    'LOKALINK', 'TRUNTUM', 'Hanrevel', 'SASFIA', 'Go Green',
+    'Benang Merah', 'FloraTrace', 'DigiScoral Squad', 'Wastra Serumpun', 'The Sandau',
   ])
   b.context.ensureSheet_ = () => {}
   assert.equal(b.context.setup2026Roster().created.teams, 10)
+  b.tables.TeamMembers.find((member) => member.id === 'byp26-pertiba-1-member-2').name = 'Old spelling'
   assert.equal(b.context.setup2026Roster().created.teams, 0)
   assert.equal(b.tables.TeamMembers.length, 30)
   assert.equal(b.tables.Teams.length, 12)
+  assert.equal(b.tables.TeamMembers.find((member) => member.id === 'byp26-pertiba-1-member-2').name, 'Regina Awaliyah')
 })
 
 test('private reads reject missing sessions before writes or bootstrap', () => {
