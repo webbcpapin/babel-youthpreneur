@@ -659,14 +659,16 @@ function ChallengeScoring({ profile, teams: visibleTeams, scores: activeScores }
   )
 }
 
-type ApprovalRegistration = { id: string; email: string; name: string; requestedRole: string; institution: string; whatsapp?: string; note?: string; suggestedAssignmentId?: string }
+type ApprovalRegistration = { id: string; email: string; name: string; requestedRole: string; institution: string; whatsapp?: string; note?: string; requestedAssignmentId?: string; suggestedAssignmentId?: string }
 type ApprovalCampus = { id: string; name: string }
 type ApprovalTeam = { id: string; name: string; campusId: string }
+type ApprovalUmkm = { id: string; name: string }
 
 function ApprovalCenter() {
   const [queue, setQueue] = useState<ApprovalRegistration[]>([])
   const [campuses, setCampuses] = useState<ApprovalCampus[]>([])
   const [teams, setTeams] = useState<ApprovalTeam[]>([])
+  const [umkms, setUmkms] = useState<ApprovalUmkm[]>([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [revision, setRevision] = useState(0)
@@ -680,6 +682,7 @@ function ApprovalCenter() {
       setQueue((response.registrations as ApprovalRegistration[]) ?? [])
       setCampuses((response.campuses as ApprovalCampus[]) ?? [])
       setTeams((response.teams as ApprovalTeam[]) ?? [])
+      setUmkms((response.umkms as ApprovalUmkm[]) ?? [])
       setMessage('')
     }).catch((error: unknown) => {
       if (!cancelled) setMessage(error instanceof Error ? error.message : 'Antrean belum dapat dimuat.')
@@ -694,8 +697,9 @@ function ApprovalCenter() {
       session_token: token,
       registration_id: registrationId,
       role,
-      campus_id: role === 'dosen' ? assignmentId : '',
-      team_id: role === 'dosen' ? '' : assignmentId,
+      campus_id: ['dosen', 'kampus_viewer'].includes(role) ? assignmentId : '',
+      team_id: ['mahasiswa', 'ketua_tim'].includes(role) ? assignmentId : '',
+      umkm_id: role === 'umkm' ? assignmentId : '',
     })
     setRevision((value) => value + 1)
   }
@@ -707,18 +711,19 @@ function ApprovalCenter() {
     {message && <p className="form-message" role="status">{message}</p>}
     {!loading && queue.length === 0 && !message && <div className="empty-state">Tidak ada pendaftaran yang menunggu.</div>}
     <div className="report-list">
-      {queue.map((item) => <ApprovalRow key={item.id} item={item} campuses={campuses} teams={teams} onApprove={approve} />)}
+      {queue.map((item) => <ApprovalRow key={item.id} item={item} campuses={campuses} teams={teams} umkms={umkms} onApprove={approve} />)}
     </div>
   </section>
 }
 
-function ApprovalRow({ item, campuses, teams, onApprove }: { item: ApprovalRegistration; campuses: ApprovalCampus[]; teams: ApprovalTeam[]; onApprove: (id: string, role: string, assignmentId: string) => Promise<void> }) {
-  const supported = item.requestedRole === 'dosen' || item.requestedRole === 'mahasiswa' || item.requestedRole === 'ketua_tim'
+function ApprovalRow({ item, campuses, teams, umkms, onApprove }: { item: ApprovalRegistration; campuses: ApprovalCampus[]; teams: ApprovalTeam[]; umkms: ApprovalUmkm[]; onApprove: (id: string, role: string, assignmentId: string) => Promise<void> }) {
+  const supported = ['dosen', 'mahasiswa', 'ketua_tim', 'umkm', 'kampus_viewer'].includes(item.requestedRole)
   const [role, setRole] = useState(item.requestedRole === 'ketua_tim' ? 'mahasiswa' : item.requestedRole)
   const [assignmentId, setAssignmentId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const options = role === 'dosen' ? campuses : teams
+  const options = ['dosen', 'kampus_viewer'].includes(role) ? campuses : role === 'umkm' ? umkms : teams
+  const assignmentName = (id?: string) => campuses.find((campus) => campus.id === id)?.name ?? teams.find((team) => team.id === id)?.name ?? umkms.find((umkm) => umkm.id === id)?.name ?? id
 
   async function submit() {
     if (!assignmentId || busy) return
@@ -730,13 +735,13 @@ function ApprovalRow({ item, campuses, teams, onApprove }: { item: ApprovalRegis
   }
 
   return <article className="attendance-card approval-row">
-    <div><strong>{item.name}</strong><p>{item.email}</p><p className="muted">Daftar sebagai {item.requestedRole} · {item.institution || 'Instansi belum diisi'}</p>{item.whatsapp && <p className="muted">WhatsApp: {item.whatsapp}</p>}{item.note && <p className="muted">Catatan: {item.note}</p>}{item.suggestedAssignmentId && <p className="muted">Cocok roster: {campuses.find((campus) => campus.id === item.suggestedAssignmentId)?.name ?? teams.find((team) => team.id === item.suggestedAssignmentId)?.name ?? item.suggestedAssignmentId}</p>}</div>
+    <div><strong>{item.name}</strong><p>{item.email}</p><p className="muted">Daftar sebagai {item.requestedRole} · {item.institution || 'Instansi belum diisi'}</p>{item.whatsapp && <p className="muted">WhatsApp: {item.whatsapp}</p>}{item.note && <p className="muted">Catatan: {item.note}</p>}{item.requestedAssignmentId && <p className="muted">Pilihan pendaftar: {assignmentName(item.requestedAssignmentId)}</p>}{item.suggestedAssignmentId && <p className="muted">Cocok roster: {assignmentName(item.suggestedAssignmentId)}</p>}</div>
     {supported ? <div className="approval-controls">
       <label>Role<select value={role} onChange={(event) => { setRole(event.target.value); setAssignmentId('') }} disabled={busy}>
-        {item.requestedRole === 'dosen' ? <option value="dosen">Dosen Pendamping</option> : <><option value="mahasiswa">Mahasiswa</option><option value="ketua_tim">Ketua Tim</option></>}
+        {['mahasiswa', 'ketua_tim'].includes(item.requestedRole) ? <><option value="mahasiswa">Mahasiswa</option><option value="ketua_tim">Ketua Tim</option></> : <option value={role}>{role === 'dosen' ? 'Dosen Pendamping' : role === 'kampus_viewer' ? 'Universitas' : 'UMKM'}</option>}
       </select></label>
-      <label>{role === 'dosen' ? 'Kampus' : 'Tim'}<select value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)} disabled={busy}>
-        <option value="">Pilih {role === 'dosen' ? 'kampus' : 'tim'}</option>
+      <label>{['dosen', 'kampus_viewer'].includes(role) ? 'Kampus' : role === 'umkm' ? 'UMKM' : 'Tim'}<select value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)} disabled={busy}>
+        <option value="">Pilih {['dosen', 'kampus_viewer'].includes(role) ? 'kampus' : role === 'umkm' ? 'UMKM' : 'tim'}</option>
         {options.map((option) => <option value={option.id} key={option.id}>{option.name}{'campusId' in option ? ` (${campuses.find((campus) => campus.id === option.campusId)?.name ?? ''})` : ''}</option>)}
       </select></label>
       <button className="monitoring-button primary" onClick={() => { void submit() }} disabled={!assignmentId || busy}>{busy ? 'Memproses...' : 'Setujui Akun'}</button>

@@ -38,7 +38,7 @@ const SCHEMAS = {
   [SHEETS.weeklyReportHistory]: ['id', 'report_id', 'team_id', 'week', 'action', 'actor_email', 'status', 'snapshot_json', 'created_at', 'request_id', 'request_hash'],
   [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at', 'request_id', 'source_report_id'],
   [SHEETS.challengeScores]: ['id', 'team_id', 'category', 'score', 'note', 'judge_email', 'submitted_at'],
-  [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'data_consent', 'status', 'admin_note', 'submitted_at'],
+  [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'data_consent', 'status', 'admin_note', 'submitted_at', 'requested_team_id', 'requested_umkm_id', 'requested_campus_id'],
   [SHEETS.sessions]: ['id', 'user_id', 'token_hash', 'expires_at', 'revoked_at', 'created_at'],
   [SHEETS.notifications]: ['id', 'user_email', 'title', 'message', 'is_read', 'created_at'],
   [SHEETS.auditLogs]: ['id', 'actor_email', 'action', 'entity_type', 'entity_id', 'metadata', 'created_at'],
@@ -78,6 +78,13 @@ function setupWeeklyReports2026() {
   const ss = getSpreadsheet_();
   [SHEETS.weeklyReports, SHEETS.weeklyReportHistory, SHEETS.outputs].forEach((name) => ensureSheet_(ss, name, SCHEMAS[name]));
   return { ok: true, message: 'Kolom laporan 2026 dan riwayat revisi siap; data lama tetap ada.' };
+}
+
+function setupRegistrationAssignments2026() {
+  const ss = getSpreadsheet_();
+  ensureSheet_(ss, SHEETS.registrations, SCHEMAS[SHEETS.registrations]);
+  ensureSheet_(ss, SHEETS.appUsers, SCHEMAS[SHEETS.appUsers]);
+  return { ok: true, message: 'Kolom pilihan penugasan pendaftar siap; data lama tetap ada.' };
 }
 
 function setup2026Roster() {
@@ -230,6 +237,7 @@ function handleRequest_(e, method) {
     if (!action && method === 'GET') return json_({ ok: true, service: 'Babel Youthpreneur Google Backend', modules: ['kurasi', 'monitoring'], time: now_() });
 
     if (action === 'test') return json_({ ok: true, service: 'Babel Youthpreneur Monitoring Google Backend', time: now_() });
+    if (action === 'getRegistrationOptions' && method === 'GET') return json_(getRegistrationOptions_());
     if (action !== 'test' && method !== 'POST') return json_({ ok: false, code: 'METHOD_NOT_ALLOWED', error: 'Gunakan POST untuk tindakan ini.' });
     if (action === 'submitKurasi') return json_(submitKurasi_(payload));
     if (action === 'bootstrap') return json_({ ok: false, error: 'Bootstrap hanya boleh dijalankan dari editor Apps Script oleh administrator.' });
@@ -344,6 +352,19 @@ function getData_(payload) {
     attendanceSessions: isAdminRole_(profile.role) ? readObjects_(ss.getSheetByName(SHEETS.attendanceSessions)).filter((row) => String(row.id).startsWith('byp26-')).map((row) => ({ id: row.id, title: row.title, token: row.token, startsAt: row.starts_at, endsAt: row.ends_at, location: row.location })) : [],
     attendanceRecords: readObjects_(ss.getSheetByName(SHEETS.attendanceRecords)).filter((row) => teamIds.includes(row.team_id) && (isAdminRole_(profile.role) || String(row.email).toLowerCase() === profile.email || profile.role === 'dosen')).map((row) => ({ id: row.id, sessionId: row.session_id, teamId: row.team_id, name: row.name, status: row.status, submittedAt: row.submitted_at, photoUrl: row.photo_drive_url })),
     learningModules: readObjects_(ss.getSheetByName(SHEETS.learningModules)).filter((row) => String(row.id).startsWith('byp26-module-')).map((row) => ({ id: row.id, title: row.title, date: row.date, materialName: row.materials, materialUrl: row.material_url || '' })),
+  };
+}
+
+function getRegistrationOptions_() {
+  const ss = getSpreadsheet_();
+  const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses)).filter((row) => String(row.id).startsWith('byp26-'));
+  const umkms = readObjects_(ss.getSheetByName(SHEETS.umkms)).filter((row) => String(row.id).startsWith('byp26-'));
+  const teams = readObjects_(ss.getSheetByName(SHEETS.teams)).filter((row) => String(row.id).startsWith('byp26-'));
+  return {
+    ok: true,
+    campuses: campuses.map((row) => ({ id: row.id, name: row.name })),
+    umkms: umkms.filter((row) => teams.some((team) => team.umkm_id === row.id)).map((row) => ({ id: row.id, name: row.business_name })),
+    teams: teams.map((row) => ({ id: row.id, name: row.name, campusId: row.campus_id, umkmId: row.umkm_id })),
   };
 }
 
@@ -464,6 +485,9 @@ function registerAccount_(payload) {
   const institution = String(payload.institution || '').trim();
   const whatsapp = String(payload.whatsapp || '').trim();
   const note = String(payload.note || '').trim();
+  const requestedTeamId = String(payload.requested_team_id || '').trim();
+  const requestedUmkmId = String(payload.requested_umkm_id || '').trim();
+  const requestedCampusId = String(payload.requested_campus_id || '').trim();
   const dataConsent = payload.data_consent === true || String(payload.data_consent || '').toLowerCase() === 'true';
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Email Google wajib diisi dengan format yang benar.' };
@@ -471,6 +495,17 @@ function registerAccount_(payload) {
   if (!['mahasiswa', 'dosen', 'umkm', 'juri', 'admin_panitia', 'kampus_viewer', 'pimpinan_viewer'].includes(requestedRole)) return { ok: false, error: 'Role pendaftaran tidak valid.' };
   if (institution.length > 160 || whatsapp.length > 32 || note.length > 500) return { ok: false, error: 'Data pendaftaran melebihi batas yang diizinkan.' };
   if (!dataConsent) return { ok: false, error: 'Persetujuan pemrosesan data wajib diberikan.' };
+
+  if (requestedTeamId || requestedUmkmId || requestedCampusId) {
+    const options = getRegistrationOptions_();
+    const validTeam = options.teams.some((team) => team.id === requestedTeamId);
+    const validUmkm = options.umkms.some((umkm) => umkm.id === requestedUmkmId);
+    const validCampus = options.campuses.some((campus) => campus.id === requestedCampusId);
+    if ((requestedRole === 'mahasiswa' || requestedRole === 'ketua_tim') && (!validTeam || requestedUmkmId || requestedCampusId)) return { ok: false, error: 'Pilih tim 2026 yang valid.' };
+    if (requestedRole === 'umkm' && (!validUmkm || requestedTeamId || requestedCampusId)) return { ok: false, error: 'Pilih UMKM 2026 yang valid.' };
+    if ((requestedRole === 'dosen' || requestedRole === 'kampus_viewer') && (!validCampus || requestedTeamId || requestedUmkmId)) return { ok: false, error: 'Pilih kampus 2026 yang valid.' };
+    if (!['mahasiswa', 'ketua_tim', 'umkm', 'dosen', 'kampus_viewer'].includes(requestedRole)) return { ok: false, error: 'Penugasan tidak sesuai role pendaftaran.' };
+  }
 
   const cache = CacheService.getScriptCache();
   const rateLimitKey = 'registration-' + hashToken_(email);
@@ -492,6 +527,9 @@ function registerAccount_(payload) {
     institution: institution,
     whatsapp: whatsapp,
     note: note,
+    requested_team_id: requestedTeamId,
+    requested_umkm_id: requestedUmkmId,
+    requested_campus_id: requestedCampusId,
     data_consent: 'true',
     status: 'pending_admin_review',
     admin_note: '',
@@ -532,18 +570,24 @@ function getApprovalQueue_(payload) {
     .filter((row) => !users.some((user) => String(user.email).toLowerCase() === String(row.email).toLowerCase() && String(user.status) === 'active'));
   const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses)).filter((row) => String(row.id).startsWith('byp26-'));
   const teams = readObjects_(ss.getSheetByName(SHEETS.teams)).filter((row) => String(row.id).startsWith('byp26-'));
+  const umkms = readObjects_(ss.getSheetByName(SHEETS.umkms)).filter((row) => String(row.id).startsWith('byp26-') && teams.some((team) => team.umkm_id === row.id));
   const members = readObjects_(ss.getSheetByName(SHEETS.teamMembers));
   const normalize = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
   return {
     ok: true,
     registrations: pending.map((row) => {
-      const match = String(row.requested_role) === 'dosen'
-        ? campuses.find((campus) => normalize(campus.pic) === normalize(row.name))
+      const requestedRole = String(row.requested_role);
+      const match = requestedRole === 'dosen' ? campuses.find((campus) => normalize(campus.pic) === normalize(row.name))
+        : requestedRole === 'kampus_viewer' ? campuses.find((campus) => normalize(campus.name) === normalize(row.institution))
+        : requestedRole === 'umkm' ? umkms.find((umkm) => normalize(umkm.business_name) === normalize(row.institution))
         : members.find((member) => normalize(member.name) === normalize(row.name) && teams.some((team) => team.id === member.team_id));
-      return { id: row.id, email: row.email, name: row.name, requestedRole: row.requested_role, institution: row.institution, whatsapp: row.whatsapp, note: row.note, submittedAt: row.submitted_at, suggestedAssignmentId: match ? (match.team_id || match.id) : '' };
+      return { id: row.id, email: row.email, name: row.name, requestedRole: row.requested_role, institution: row.institution, whatsapp: row.whatsapp, note: row.note, submittedAt: row.submitted_at,
+        requestedAssignmentId: row.requested_team_id || row.requested_umkm_id || row.requested_campus_id || '',
+        suggestedAssignmentId: match ? (match.team_id || match.id) : '' };
     }),
     campuses: campuses.map((row) => ({ id: row.id, name: row.name })),
     teams: teams.map((row) => ({ id: row.id, name: row.name, campusId: row.campus_id })),
+    umkms: umkms.map((row) => ({ id: row.id, name: row.business_name })),
   };
 }
 
@@ -551,29 +595,33 @@ function approveAccount_(payload) {
   const actor = requireProfile_(payload);
   if (!isAdminRole_(actor.role)) throw apiError_('FORBIDDEN', 'Hanya admin yang dapat mengaktifkan akun.');
   const role = String(payload.role || '').trim().toLowerCase();
-  if (!['dosen', 'mahasiswa', 'ketua_tim'].includes(role)) throw apiError_('INVALID_ROLE', 'Persetujuan ini hanya untuk dosen atau mahasiswa.');
+  if (!['dosen', 'mahasiswa', 'ketua_tim', 'umkm', 'kampus_viewer'].includes(role)) throw apiError_('INVALID_ROLE', 'Role persetujuan tidak valid.');
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw apiError_('BUSY', 'Persetujuan sedang diproses. Coba lagi.');
   try {
     const ss = getSpreadsheet_();
     const registration = readObjects_(ss.getSheetByName(SHEETS.registrations)).find((row) => String(row.id) === String(payload.registration_id));
     if (!registration || String(registration.status) !== 'pending_admin_review') throw apiError_('NOT_PENDING', 'Pendaftaran tidak ditemukan atau sudah diproses.');
-    if (role === 'dosen' && String(registration.requested_role) !== 'dosen') throw apiError_('ROLE_MISMATCH', 'Pendaftaran ini bukan untuk dosen.');
-    if (role !== 'dosen' && !['mahasiswa', 'ketua_tim'].includes(String(registration.requested_role))) throw apiError_('ROLE_MISMATCH', 'Pendaftaran ini bukan untuk mahasiswa.');
+    const requestedRole = String(registration.requested_role || '');
+    if ((role === 'mahasiswa' || role === 'ketua_tim') ? !['mahasiswa', 'ketua_tim'].includes(requestedRole) : role !== requestedRole) throw apiError_('ROLE_MISMATCH', 'Role persetujuan tidak sesuai pendaftaran.');
     const campusId = String(payload.campus_id || '');
     const teamId = String(payload.team_id || '');
+    const umkmId = String(payload.umkm_id || '');
     const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses));
     const teams = readObjects_(ss.getSheetByName(SHEETS.teams));
-    if (role === 'dosen' && !campuses.some((row) => String(row.id) === campusId && campusId.startsWith('byp26-'))) throw apiError_('INVALID_CAMPUS', 'Pilih kampus 2026 yang valid.');
+    if (['dosen', 'kampus_viewer'].includes(role) && !campuses.some((row) => String(row.id) === campusId && campusId.startsWith('byp26-'))) throw apiError_('INVALID_CAMPUS', 'Pilih kampus 2026 yang valid.');
     const team = teams.find((row) => String(row.id) === teamId && teamId.startsWith('byp26-'));
-    if (role !== 'dosen' && !team) throw apiError_('INVALID_TEAM', 'Pilih tim 2026 yang valid.');
+    if (['mahasiswa', 'ketua_tim'].includes(role) && !team) throw apiError_('INVALID_TEAM', 'Pilih tim 2026 yang valid.');
+    if (role === 'umkm' && (!umkmId.startsWith('byp26-') || !teams.some((row) => String(row.umkm_id) === umkmId && String(row.id).startsWith('byp26-')))) throw apiError_('INVALID_UMKM', 'Pilih UMKM 2026 yang valid.');
     const users = readObjects_(ss.getSheetByName(SHEETS.appUsers));
     const user = users.find((row) => String(row.email || '').toLowerCase() === String(registration.email || '').toLowerCase());
     if (!user || String(user.status).toLowerCase() === 'active') throw apiError_('ACCOUNT_STATE', 'Akun sudah aktif atau belum terdaftar.');
-    const assignment = { name: registration.name, role: role, campus_id: role === 'dosen' ? campusId : team.campus_id, team_id: role === 'dosen' ? '' : teamId, status: 'active' };
+    const studentRole = ['mahasiswa', 'ketua_tim'].includes(role);
+    const assignment = { name: registration.name, role: role, campus_id: studentRole ? team.campus_id : ['dosen', 'kampus_viewer'].includes(role) ? campusId : '',
+      team_id: studentRole ? teamId : '', umkm_id: role === 'umkm' ? umkmId : '', status: 'active' };
     if (!updateObjectById_(SHEETS.appUsers, user.id, assignment)) throw apiError_('UPDATE_FAILED', 'Akun tidak dapat diperbarui.');
     updateObjectById_(SHEETS.registrations, registration.id, { status: 'approved', admin_note: String(payload.admin_note || '').slice(0, 500) });
-    audit_(actor.email, 'approveAccount', 'registration', registration.id, { email: registration.email, role: role, campus_id: assignment.campus_id, team_id: assignment.team_id });
+    audit_(actor.email, 'approveAccount', 'registration', registration.id, { email: registration.email, role: role, campus_id: assignment.campus_id, team_id: assignment.team_id, umkm_id: assignment.umkm_id });
     return { ok: true, email: registration.email, role: role };
   } finally {
     lock.releaseLock();

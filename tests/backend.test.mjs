@@ -102,6 +102,63 @@ test('admin approval assigns a registered student to a 2026 team once', () => {
   assert.throws(() => b.context.getApprovalQueue_({}), { code: 'FORBIDDEN' })
 })
 
+test('public registration options expose only 2026 assignments, not member identities', () => {
+  const b = backend()
+  b.tables.Campuses = [{ id: 'byp26-campus-ubb', name: 'Universitas Bangka Belitung' }]
+  b.tables.UMKM = [{ id: 'byp26-umkm-1', business_name: 'Batik Mitra', owner_name: 'Private owner' }]
+  b.tables.Teams.push({ id: 'byp26-ubb-1', name: 'Batik Mitra - Tim A', campus_id: 'byp26-campus-ubb', umkm_id: 'byp26-umkm-1' })
+  const response = b.context.handleRequest_({ parameter: { action: 'getRegistrationOptions' } }, 'GET')
+  assert.equal(response.ok, true)
+  assert.equal(response.teams.length, 2)
+  assert.equal(response.umkms[0].name, 'Batik Mitra')
+  assert.ok(!JSON.stringify(response).includes('Private owner'))
+})
+
+test('student team selection stays pending until admin approves the assignment', () => {
+  const b = backend()
+  b.tables.Teams.push({ id: 'byp26-ubb-1', name: 'Batik Mitra - Tim A', campus_id: 'byp26-campus-ubb', umkm_id: 'byp26-umkm-1' })
+  const payload = { email: 'new@example.test', name: 'New Student', requested_role: 'mahasiswa', institution: 'Universitas Bangka Belitung', data_consent: true, requested_team_id: 'byp26-ubb-1' }
+  assert.equal(b.context.registerAccount_(payload).status, 'pending_admin_review')
+  assert.equal(b.tables.Registrations[0].requested_team_id, 'byp26-ubb-1')
+  assert.equal(b.tables.AppUsers[1].team_id, '')
+  assert.equal(b.tables.AppUsers[1].status, 'pending')
+  b.context.verifyGoogleIdToken_ = () => ({ ok: true, email: 'new@example.test' })
+  assert.equal(b.context.loginWithGoogle_({ id_token: 'test-provider-token' }).ok, false)
+  const invalid = backend()
+  assert.equal(invalid.context.registerAccount_({ ...payload, email: 'other@example.test', requested_team_id: 'byp26-fake' }).ok, false)
+})
+
+test('admin assigns UMKM to only its pairing and university viewer to its two teams', () => {
+  const b = backend()
+  b.tables.Campuses = [{ id: 'byp26-campus-ubb', name: 'Universitas Bangka Belitung' }, { id: 'byp26-campus-iain', name: 'IAIN' }]
+  b.tables.UMKM = [{ id: 'byp26-umkm-1', business_name: 'Mitra A' }, { id: 'byp26-umkm-2', business_name: 'Mitra B' }, { id: 'byp26-umkm-3', business_name: 'Mitra C' }]
+  b.tables.Teams = [
+    { id: 'byp26-ubb-1', campus_id: 'byp26-campus-ubb', umkm_id: 'byp26-umkm-1', program_year: 2026 },
+    { id: 'byp26-ubb-2', campus_id: 'byp26-campus-ubb', umkm_id: 'byp26-umkm-2', program_year: 2026 },
+    { id: 'byp26-iain-1', campus_id: 'byp26-campus-iain', umkm_id: 'byp26-umkm-3', program_year: 2026 },
+  ]
+  b.tables.Registrations = [
+    { id: 'reg-umkm', email: 'umkm@example.test', name: 'Owner', requested_role: 'umkm', requested_umkm_id: 'byp26-umkm-1', status: 'pending_admin_review' },
+    { id: 'reg-campus', email: 'campus@example.test', name: 'Campus', requested_role: 'kampus_viewer', requested_campus_id: 'byp26-campus-ubb', status: 'pending_admin_review' },
+  ]
+  b.tables.AppUsers.push({ id: 'u-umkm', email: 'umkm@example.test', status: 'pending' }, { id: 'u-campus', email: 'campus@example.test', status: 'pending' })
+  b.context.requireProfile_ = () => ({ email: 'admin@example.test', role: 'admin' })
+  assert.equal(b.context.getApprovalQueue_({}).registrations[0].requestedAssignmentId, 'byp26-umkm-1')
+  assert.throws(() => b.context.approveAccount_({ registration_id: 'reg-umkm', role: 'kampus_viewer', campus_id: 'byp26-campus-ubb' }), { code: 'ROLE_MISMATCH' })
+  assert.equal(b.context.approveAccount_({ registration_id: 'reg-umkm', role: 'umkm', umkm_id: 'byp26-umkm-1' }).ok, true)
+  assert.equal(b.context.approveAccount_({ registration_id: 'reg-campus', role: 'kampus_viewer', campus_id: 'byp26-campus-ubb' }).ok, true)
+  const ownUmkm = b.context.scopeTeamsForProfile_({ role: 'umkm', umkmId: b.tables.AppUsers[1].umkm_id }, b.tables.Teams)
+  const ownCampus = b.context.scopeTeamsForProfile_({ role: 'kampus_viewer', campusId: b.tables.AppUsers[2].campus_id }, b.tables.Teams)
+  assert.deepEqual(Array.from(ownUmkm.map((team) => team.id)), ['byp26-ubb-1'])
+  assert.deepEqual(Array.from(ownCampus.map((team) => team.id)), ['byp26-ubb-1', 'byp26-ubb-2'])
+  b.tables.WeeklyReports = b.tables.Teams.map((team, index) => ({ id: `report-${index}`, team_id: team.id, week: 1, report_status: 'draft' }))
+  b.context.requireProfile_ = () => ({ role: 'umkm', umkmId: 'byp26-umkm-1', email: 'umkm@example.test' })
+  assert.deepEqual(Array.from(b.context.getData_({}).reports.map((report) => report.teamId)), ['byp26-ubb-1'])
+  b.context.requireProfile_ = () => ({ role: 'kampus_viewer', campusId: 'byp26-campus-ubb', email: 'campus@example.test' })
+  assert.deepEqual(Array.from(b.context.getData_({}).reports.map((report) => report.teamId)), ['byp26-ubb-1', 'byp26-ubb-2'])
+  assert.deepEqual(Array.from(b.context.getData_({}).teams.map((team) => team.id)), ['byp26-ubb-1', 'byp26-ubb-2'])
+})
+
 test('only admin can publish a Drive URL for a known 2026 module', () => {
   const b = backend()
   b.tables.LearningModules = [{ id: 'byp26-module-enti', title: 'Digital Marketing', material_url: '' }]

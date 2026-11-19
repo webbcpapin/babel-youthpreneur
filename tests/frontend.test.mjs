@@ -149,7 +149,7 @@ const registrationImports = {
   'react/jsx-runtime': jsxRuntime,
   'react-router': { Link: ({ to, children, ...props }) => React.createElement('a', { ...props, href: to }, children) },
   'lucide-react': { ShieldCheck: () => null },
-  '@/services/monitoring-api': { postAction: () => { throw new Error('Rendering must not submit a registration') } },
+  '@/services/monitoring-api': { postAction: () => { throw new Error('Rendering must not submit a registration') }, getPublicAction: () => { throw new Error('Static rendering must not fetch assignment options') } },
   '@/monitoring/MonitoringPage.css': {},
 }
 
@@ -164,6 +164,7 @@ test('each registration form renders role-specific content with required consent
     assert.match(markup, /type="checkbox"[^>]*required=""|required=""[^>]*type="checkbox"/)
     assert.match(markup, /href="\/login"/)
     assert.ok(markup.includes(`Daftar ${profile.label}`))
+    if (['mahasiswa', 'dosen', 'umkm', 'kampus_viewer'].includes(profile.role)) assert.match(markup, /Pilih (tim|UMKM|kampus)/)
   }
 })
 
