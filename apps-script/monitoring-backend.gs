@@ -15,6 +15,7 @@ const SHEETS = {
   attendanceSessions: 'AttendanceSessions',
   attendanceRecords: 'AttendanceRecords',
   weeklyReports: 'WeeklyReports',
+  weeklyReportHistory: 'WeeklyReportHistory',
   outputs: 'Outputs',
   challengeScores: 'ChallengeScores',
   registrations: 'Registrations',
@@ -30,17 +31,32 @@ const SCHEMAS = {
   [SHEETS.teams]: ['id', 'name', 'campus_id', 'umkm_id', 'progress', 'status', 'reports', 'outputs', 'attendance', 'created_at', 'program_year', 'nickname'],
   [SHEETS.teamMembers]: ['id', 'team_id', 'name', 'campus_id', 'email', 'created_at'],
   [SHEETS.courses]: ['id', 'title', 'description', 'start_date', 'end_date', 'created_at'],
-  [SHEETS.learningModules]: ['id', 'course_id', 'title', 'date', 'status', 'progress', 'materials', 'assignment', 'quiz_average', 'created_at'],
-  [SHEETS.attendanceSessions]: ['id', 'module_id', 'title', 'token', 'starts_at', 'ends_at', 'location', 'radius_meters', 'created_at'],
-  [SHEETS.attendanceRecords]: ['id', 'session_id', 'team_id', 'name', 'email', 'latitude', 'longitude', 'photo_drive_url', 'status', 'submitted_at'],
-  [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at', 'request_id'],
-  [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at', 'request_id'],
+  [SHEETS.learningModules]: ['id', 'course_id', 'title', 'date', 'status', 'progress', 'materials', 'assignment', 'quiz_average', 'created_at', 'material_url'],
+  [SHEETS.attendanceSessions]: ['id', 'module_id', 'title', 'token', 'starts_at', 'ends_at', 'location', 'radius_meters', 'created_at', 'latitude', 'longitude'],
+  [SHEETS.attendanceRecords]: ['id', 'session_id', 'team_id', 'name', 'email', 'latitude', 'longitude', 'photo_drive_url', 'status', 'submitted_at', 'accuracy_meters'],
+  [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at', 'request_id', 'program_year', 'report_status', 'items_json', 'final_outputs_json', 'umkm_approval_url', 'umkm_approved', 'umkm_note', 'review_note', 'reviewed_by', 'reviewed_at', 'updated_at', 'revision', 'request_hash'],
+  [SHEETS.weeklyReportHistory]: ['id', 'report_id', 'team_id', 'week', 'action', 'actor_email', 'status', 'snapshot_json', 'created_at', 'request_id', 'request_hash'],
+  [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at', 'request_id', 'source_report_id'],
   [SHEETS.challengeScores]: ['id', 'team_id', 'category', 'score', 'note', 'judge_email', 'submitted_at'],
   [SHEETS.registrations]: ['id', 'email', 'name', 'requested_role', 'institution', 'whatsapp', 'note', 'data_consent', 'status', 'admin_note', 'submitted_at'],
   [SHEETS.sessions]: ['id', 'user_id', 'token_hash', 'expires_at', 'revoked_at', 'created_at'],
   [SHEETS.notifications]: ['id', 'user_email', 'title', 'message', 'is_read', 'created_at'],
   [SHEETS.auditLogs]: ['id', 'actor_email', 'action', 'entity_type', 'entity_id', 'metadata', 'created_at'],
 };
+
+const WEEKLY_PLAN_2026 = {
+  1: ['profile', 'swot', 'channel_audit', 'target', 'concept'],
+  2: ['channel_update', 'photo_video', 'content', 'catalog_draft', 'idea_draft', 'ai_review'],
+  3: ['three_contents', 'marketing_evaluation', 'catalog_final', 'idea_final', 'ai_final', 'handover', 'challenge_ready'],
+};
+const FINAL_OUTPUT_TYPES = {
+  marketing: 'Digital Marketing Strategy',
+  catalog: 'Best Catalog Product',
+  business: 'Best Innovative Business Idea',
+};
+const FINAL_DEADLINE_2026 = Date.parse('2026-12-09T23:59:59+07:00');
+
+function isPastFinalDeadline_() { return Date.now() > FINAL_DEADLINE_2026; }
 
 function doGet(e) {
   return handleRequest_(e, 'GET');
@@ -56,6 +72,12 @@ function bootstrap() {
 
 function setupMonitoring() {
   return bootstrap_();
+}
+
+function setupWeeklyReports2026() {
+  const ss = getSpreadsheet_();
+  [SHEETS.weeklyReports, SHEETS.weeklyReportHistory, SHEETS.outputs].forEach((name) => ensureSheet_(ss, name, SCHEMAS[name]));
+  return { ok: true, message: 'Kolom laporan 2026 dan riwayat revisi siap; data lama tetap ada.' };
 }
 
 function setup2026Roster() {
@@ -104,10 +126,57 @@ function setup2026Roster() {
         created.members++;
       });
     });
-    return { ok: true, created: created, message: 'Roster 2026 siap. Data lama tidak dihapus.' };
+    upsert2026Modules_(ss, now);
+    return { ok: true, created: created, message: 'Roster dan modul 2026 siap. Data lama tidak dihapus.' };
   } finally {
     lock.releaseLock();
   }
+}
+
+function setup2026Finishing() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error('Pembaruan sedang dijalankan. Coba lagi.');
+  try {
+    const ss = getSpreadsheet_();
+    const sheet = ensureSheet_(ss, SHEETS.teams, SCHEMAS[SHEETS.teams]);
+    const rows = readObjects_(sheet);
+    const rowById = new Map(rows.map((row, index) => [String(row.id), index + 2]));
+    const nameColumn = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].indexOf('name') + 1;
+    let updatedTeams = 0;
+    get2026Roster_().forEach((team) => {
+      const rowNumber = rowById.get(team.id);
+      if (!rowNumber) return;
+      if (String(rows[rowNumber - 2].name) !== team.name) {
+        sheet.getRange(rowNumber, nameColumn).setValue(team.name);
+        updatedTeams++;
+      }
+    });
+    const updatedModules = upsert2026Modules_(ss, now_());
+    return { ok: true, updatedTeams: updatedTeams, updatedModules: updatedModules, message: 'Nama tim dan materi 2026 siap.' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function upsert2026Modules_(ss, now) {
+  ensureSheet_(ss, SHEETS.learningModules, SCHEMAS[SHEETS.learningModules]);
+  const existingModules = new Map(readObjects_(ss.getSheetByName(SHEETS.learningModules)).map((row) => [String(row.id), row]));
+  const modules = [
+    ['byp26-module-finalia', 'Entrepreneurship - Yang Finalia', 'Tanahwari By Yang Finalia.pdf', 'https://drive.google.com/file/d/169Ilzxt5MkvCcxBH4u6gyCD4u-zjHRAR/view'],
+    ['byp26-module-enti', 'Digital Marketing Medsos dan Monetisasi - Enti Hidayati', 'Digital Marketing dan Monetisasi_Enti Hidayati.pdf', 'https://drive.google.com/file/d/1nkNRyivvyoNjxoBNMV4ZMJSXeQNkrP5P/view'],
+    ['byp26-module-cento', 'Media Sosial dan Katalog Produk - Cento Sadewa', 'cento & MNJD.pdf', 'https://drive.google.com/file/d/1HMbC_Qr79ucCt3TOKKgNgBkyfc36GkiN/view'],
+    ['byp26-module-lereng', 'Artificial Intelligence untuk UMKM - Lereng Cahyo Handoko', 'AI Powered UMKM.pdf', 'https://drive.google.com/file/d/1Uh-iON790Rm0YYgs4k8hNuRqgcpcpO8p/view'],
+  ];
+  let updated = 0;
+  modules.forEach((module) => {
+    if (existingModules.has(module[0])) {
+      if (!existingModules.get(module[0]).material_url) updateObjectById_(SHEETS.learningModules, module[0], { material_url: module[3] });
+    } else {
+      appendObject_(SHEETS.learningModules, { id: module[0], course_id: 'byp26-course', title: module[1], date: '2026-11-18', status: 'Materi tersedia', progress: 0, materials: module[2], assignment: '', quiz_average: 0, material_url: module[3], created_at: now });
+    }
+    updated++;
+  });
+  return updated;
 }
 
 function get2026Roster_() {
@@ -132,7 +201,7 @@ function get2026Roster_() {
   ];
   return rows.map((row) => ({
     id: 'byp26-' + campuses[row[0]][0] + '-' + row[1],
-    name: 'Tim ' + row[1],
+    name: row[3] + ' - ' + row[2],
     nickname: row[2],
     campusId: 'byp26-campus-' + campuses[row[0]][0],
     campus: campuses[row[0]][1],
@@ -165,11 +234,16 @@ function handleRequest_(e, method) {
     if (action === 'submitKurasi') return json_(submitKurasi_(payload));
     if (action === 'bootstrap') return json_({ ok: false, error: 'Bootstrap hanya boleh dijalankan dari editor Apps Script oleh administrator.' });
     if (action === 'getData') return json_(getData_(payload));
+    if (action === 'getApprovalQueue') return json_(getApprovalQueue_(payload));
+    if (action === 'approveAccount') return json_(approveAccount_(payload));
+    if (action === 'saveModule') return json_(saveModule_(payload));
+    if (action === 'createAttendanceSession') return json_(createAttendanceSession_(payload));
     if (action === 'loginWithGoogle') return json_(loginWithGoogle_(payload));
     if (action === 'getSession') return json_(getSession_(payload));
     if (action === 'logout') return json_(logout_(payload));
     if (action === 'registerAccount') return json_(registerAccount_(payload));
     if (action === 'submitWeeklyReport') return json_(submitWeeklyReport_(payload));
+    if (action === 'reviewWeeklyReport') return json_(reviewWeeklyReport_(payload));
     if (action === 'submitOutput') return json_(submitOutput_(payload));
     if (action === 'submitScore') return json_(submitScore_(payload));
     if (action === 'submitAttendance') return json_(submitAttendance_(payload));
@@ -249,18 +323,7 @@ function getData_(payload) {
         attendance: Number(team.attendance || 0),
       };
     }),
-    reports: reports.map((row) => ({
-      id: row.id,
-      teamId: row.team_id,
-      week: Number(row.week || 0),
-      activity: row.activity || '',
-      progress: row.progress || '',
-      obstacles: row.obstacles || '',
-      nextPlan: row.next_plan || '',
-      driveLink: row.drive_link || '',
-      publicationLink: row.publication_link || '',
-      validation: row.validation || 'pending',
-    })),
+    reports: reports.map(reportForClient_),
     outputs: outputs.map((row) => ({
       id: row.id,
       teamId: row.team_id,
@@ -278,6 +341,9 @@ function getData_(payload) {
       note: row.note || '',
     })),
     mentors: mentors,
+    attendanceSessions: isAdminRole_(profile.role) ? readObjects_(ss.getSheetByName(SHEETS.attendanceSessions)).filter((row) => String(row.id).startsWith('byp26-')).map((row) => ({ id: row.id, title: row.title, token: row.token, startsAt: row.starts_at, endsAt: row.ends_at, location: row.location })) : [],
+    attendanceRecords: readObjects_(ss.getSheetByName(SHEETS.attendanceRecords)).filter((row) => teamIds.includes(row.team_id) && (isAdminRole_(profile.role) || String(row.email).toLowerCase() === profile.email || profile.role === 'dosen')).map((row) => ({ id: row.id, sessionId: row.session_id, teamId: row.team_id, name: row.name, status: row.status, submittedAt: row.submitted_at, photoUrl: row.photo_drive_url })),
+    learningModules: readObjects_(ss.getSheetByName(SHEETS.learningModules)).filter((row) => String(row.id).startsWith('byp26-module-')).map((row) => ({ id: row.id, title: row.title, date: row.date, materialName: row.materials, materialUrl: row.material_url || '' })),
   };
 }
 
@@ -456,6 +522,79 @@ function registerAccount_(payload) {
   };
 }
 
+function getApprovalQueue_(payload) {
+  const actor = requireProfile_(payload);
+  if (!isAdminRole_(actor.role)) throw apiError_('FORBIDDEN', 'Hanya admin yang dapat meninjau pendaftaran.');
+  const ss = getSpreadsheet_();
+  const users = readObjects_(ss.getSheetByName(SHEETS.appUsers));
+  const pending = readObjects_(ss.getSheetByName(SHEETS.registrations))
+    .filter((row) => String(row.status) === 'pending_admin_review')
+    .filter((row) => !users.some((user) => String(user.email).toLowerCase() === String(row.email).toLowerCase() && String(user.status) === 'active'));
+  const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses)).filter((row) => String(row.id).startsWith('byp26-'));
+  const teams = readObjects_(ss.getSheetByName(SHEETS.teams)).filter((row) => String(row.id).startsWith('byp26-'));
+  const members = readObjects_(ss.getSheetByName(SHEETS.teamMembers));
+  const normalize = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  return {
+    ok: true,
+    registrations: pending.map((row) => {
+      const match = String(row.requested_role) === 'dosen'
+        ? campuses.find((campus) => normalize(campus.pic) === normalize(row.name))
+        : members.find((member) => normalize(member.name) === normalize(row.name) && teams.some((team) => team.id === member.team_id));
+      return { id: row.id, email: row.email, name: row.name, requestedRole: row.requested_role, institution: row.institution, whatsapp: row.whatsapp, note: row.note, submittedAt: row.submitted_at, suggestedAssignmentId: match ? (match.team_id || match.id) : '' };
+    }),
+    campuses: campuses.map((row) => ({ id: row.id, name: row.name })),
+    teams: teams.map((row) => ({ id: row.id, name: row.name, campusId: row.campus_id })),
+  };
+}
+
+function approveAccount_(payload) {
+  const actor = requireProfile_(payload);
+  if (!isAdminRole_(actor.role)) throw apiError_('FORBIDDEN', 'Hanya admin yang dapat mengaktifkan akun.');
+  const role = String(payload.role || '').trim().toLowerCase();
+  if (!['dosen', 'mahasiswa', 'ketua_tim'].includes(role)) throw apiError_('INVALID_ROLE', 'Persetujuan ini hanya untuk dosen atau mahasiswa.');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw apiError_('BUSY', 'Persetujuan sedang diproses. Coba lagi.');
+  try {
+    const ss = getSpreadsheet_();
+    const registration = readObjects_(ss.getSheetByName(SHEETS.registrations)).find((row) => String(row.id) === String(payload.registration_id));
+    if (!registration || String(registration.status) !== 'pending_admin_review') throw apiError_('NOT_PENDING', 'Pendaftaran tidak ditemukan atau sudah diproses.');
+    if (role === 'dosen' && String(registration.requested_role) !== 'dosen') throw apiError_('ROLE_MISMATCH', 'Pendaftaran ini bukan untuk dosen.');
+    if (role !== 'dosen' && !['mahasiswa', 'ketua_tim'].includes(String(registration.requested_role))) throw apiError_('ROLE_MISMATCH', 'Pendaftaran ini bukan untuk mahasiswa.');
+    const campusId = String(payload.campus_id || '');
+    const teamId = String(payload.team_id || '');
+    const campuses = readObjects_(ss.getSheetByName(SHEETS.campuses));
+    const teams = readObjects_(ss.getSheetByName(SHEETS.teams));
+    if (role === 'dosen' && !campuses.some((row) => String(row.id) === campusId && campusId.startsWith('byp26-'))) throw apiError_('INVALID_CAMPUS', 'Pilih kampus 2026 yang valid.');
+    const team = teams.find((row) => String(row.id) === teamId && teamId.startsWith('byp26-'));
+    if (role !== 'dosen' && !team) throw apiError_('INVALID_TEAM', 'Pilih tim 2026 yang valid.');
+    const users = readObjects_(ss.getSheetByName(SHEETS.appUsers));
+    const user = users.find((row) => String(row.email || '').toLowerCase() === String(registration.email || '').toLowerCase());
+    if (!user || String(user.status).toLowerCase() === 'active') throw apiError_('ACCOUNT_STATE', 'Akun sudah aktif atau belum terdaftar.');
+    const assignment = { name: registration.name, role: role, campus_id: role === 'dosen' ? campusId : team.campus_id, team_id: role === 'dosen' ? '' : teamId, status: 'active' };
+    if (!updateObjectById_(SHEETS.appUsers, user.id, assignment)) throw apiError_('UPDATE_FAILED', 'Akun tidak dapat diperbarui.');
+    updateObjectById_(SHEETS.registrations, registration.id, { status: 'approved', admin_note: String(payload.admin_note || '').slice(0, 500) });
+    audit_(actor.email, 'approveAccount', 'registration', registration.id, { email: registration.email, role: role, campus_id: assignment.campus_id, team_id: assignment.team_id });
+    return { ok: true, email: registration.email, role: role };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveModule_(payload) {
+  const actor = requireProfile_(payload);
+  if (!isAdminRole_(actor.role)) throw apiError_('FORBIDDEN', 'Hanya admin yang dapat mengelola modul.');
+  const moduleId = String(payload.module_id || '');
+  const url = String(payload.material_url || '').trim();
+  if (!moduleId.startsWith('byp26-module-')) throw apiError_('INVALID_MODULE', 'Modul 2026 tidak valid.');
+  if (url && !/^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(url)) throw apiError_('INVALID_URL', 'Gunakan tautan HTTPS Google Drive atau Docs.');
+  const ss = getSpreadsheet_();
+  const module = readObjects_(ss.getSheetByName(SHEETS.learningModules)).find((row) => String(row.id) === moduleId);
+  if (!module) throw apiError_('INVALID_MODULE', 'Modul tidak ditemukan.');
+  if (!updateObjectById_(SHEETS.learningModules, moduleId, { material_url: url })) throw apiError_('UPDATE_FAILED', 'Tautan modul gagal disimpan.');
+  audit_(actor.email, 'saveModule', 'learning_module', moduleId, { material_url: url });
+  return { ok: true, id: moduleId, materialUrl: url };
+}
+
 function buildMentors_(ss, profile, scopedTeams) {
   if (!isAdminRole_(profile.role) && profile.role !== 'dosen') return [];
 
@@ -534,29 +673,212 @@ function canAccessTeam_(profile, teamId) {
 
 function submitWeeklyReport_(payload) {
   const profile = requireProfile_(payload);
-  if (!isAdminRole_(profile.role) && !isStudentRole_(profile.role)) return { ok: false, error: 'Role tidak boleh mengirim laporan mingguan.' };
-  if (!canAccessTeam_(profile, payload.team_id)) return { ok: false, error: 'Tim tidak sesuai dengan akses pengguna.' };
+  if (!isStudentRole_(profile.role)) throw apiError_('FORBIDDEN', 'Hanya mahasiswa dalam tim yang dapat mengisi laporan.');
+  if (!profile.teamId || String(profile.teamId) !== String(payload.team_id) || !String(profile.teamId).startsWith('byp26-')) throw apiError_('FORBIDDEN', 'Laporan hanya boleh diisi untuk tim sendiri.');
+  if (!canAccessTeam_(profile, profile.teamId)) throw apiError_('FORBIDDEN', 'Tim 2026 tidak ditemukan atau belum ditetapkan ke akun ini.');
   const week = Number(payload.week);
-  if (!Number.isInteger(week) || week < 1 || week > 52) return { ok: false, error: 'Minggu laporan harus berupa angka 1 sampai 52.' };
-  const activity = String(payload.activity || '').trim();
-  const progress = String(payload.progress || '').trim();
-  if (!activity || !progress || activity.length > 10000 || progress.length > 10000) return { ok: false, error: 'Aktivitas dan progres wajib diisi, maksimal 10000 karakter.' };
-  const row = {
-    id: makeId_('wr'),
-    team_id: payload.team_id,
-    week: week,
-    activity: activity,
-    progress: progress,
-    obstacles: payload.obstacles || '',
-    next_plan: payload.next_plan || '',
-    drive_link: payload.drive_link || '',
-    publication_link: payload.publication_link || '',
-    validation: 'pending',
-    submitted_by: profile.email,
-    submitted_at: now_(),
-    request_id: String(payload.request_id || '').slice(0, 128),
+  if (!WEEKLY_PLAN_2026[week]) throw apiError_('INVALID_WEEK', 'Pilih periode laporan 1, 2, atau 3.');
+  const mode = String(payload.mode || '');
+  if (!['draft', 'submit'].includes(mode)) throw apiError_('INVALID_STATUS', 'Pilih simpan draft atau kirim laporan.');
+  if (mode === 'submit' && isPastFinalDeadline_()) throw apiError_('DEADLINE_PASSED', 'Batas pengumpulan 9 Desember 2026 pukul 23.59 WIB sudah lewat.');
+  const requestId = String(payload.request_id || '').trim();
+  if (!requestId || requestId.length > 128) throw apiError_('REQUEST_ID_REQUIRED', 'ID pengiriman tidak valid.');
+  const obstacles = String(payload.obstacles || '').trim();
+  const nextPlan = String(payload.next_plan || '').trim();
+  if (obstacles.length > 1000 || nextPlan.length > 1000) throw apiError_('TEXT_TOO_LONG', 'Kendala dan tindak lanjut maksimal 1000 karakter.');
+  const items = parseWeeklyItems_(payload.items_json, week);
+  const finalOutputs = parseFinalOutputs_(payload.final_outputs_json, week);
+  const umkmApprovalUrl = checkedUrl_(payload.umkm_approval_url);
+  if (mode === 'submit' && !items.some((item) => item.evidenceUrl)) throw apiError_('EVIDENCE_REQUIRED', 'Tambahkan setidaknya satu tautan bukti sebelum mengirim laporan.');
+  const normalized = { team_id: profile.teamId, week: week, mode: mode, items: items, finalOutputs: finalOutputs, obstacles: obstacles, nextPlan: nextPlan, umkmApprovalUrl: umkmApprovalUrl };
+  const requestHash = hashToken_(JSON.stringify(normalized));
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw apiError_('BUSY', 'Laporan sedang disimpan. Coba lagi.');
+  try {
+    const ss = getSpreadsheet_();
+    ensureSheet_(ss, SHEETS.weeklyReports, SCHEMAS[SHEETS.weeklyReports]);
+    ensureSheet_(ss, SHEETS.weeklyReportHistory, SCHEMAS[SHEETS.weeklyReportHistory]);
+    const existing = readObjects_(ss.getSheetByName(SHEETS.weeklyReports)).find((row) => String(row.team_id) === profile.teamId && Number(row.week) === week && (String(row.program_year) === '2026' || String(row.team_id).startsWith('byp26-')));
+    const past = readObjects_(ss.getSheetByName(SHEETS.weeklyReportHistory)).find((row) => String(row.request_id) === requestId && String(row.actor_email) === profile.email);
+    if (past) {
+      if (String(past.request_hash) !== requestHash) throw apiError_('REQUEST_REUSED', 'ID pengiriman sudah dipakai untuk isi berbeda.');
+      if (week === 3 && existing && String(existing.report_status) !== 'verified') upsertFinalOutputs_(existing, parseJson_(existing.final_outputs_json, finalOutputs));
+      return { ok: true, row: reportForClient_(existing), replayed: true };
+    }
+    if (existing && String(existing.report_status) === 'verified') throw apiError_('LOCKED', 'Laporan terverifikasi tidak dapat diubah. Hubungi panitia.');
+    const timestamp = now_();
+    const previousItems = existing ? parseJson_(existing.items_json, []) : [];
+    const stampedItems = items.map((item) => {
+      const previous = previousItems.find((entry) => entry.id === item.id);
+      const unchanged = previous && previous.status === item.status && previous.evidenceUrl === item.evidenceUrl && previous.note === item.note;
+      return { ...item, updatedAt: unchanged ? previous.updatedAt : timestamp };
+    });
+    const row = {
+      id: existing ? existing.id : makeId_('byp26-wr'), team_id: profile.teamId, week: week,
+      activity: '', progress: '', obstacles: obstacles, next_plan: nextPlan,
+      drive_link: '', publication_link: '', validation: mode === 'draft' ? 'draft' : 'pending',
+      submitted_by: profile.email, submitted_at: mode === 'submit' ? timestamp : existing ? existing.submitted_at || '' : '',
+      request_id: requestId, program_year: 2026, report_status: mode === 'draft' ? 'draft' : 'submitted',
+      items_json: JSON.stringify(stampedItems), final_outputs_json: JSON.stringify(finalOutputs),
+      umkm_approval_url: umkmApprovalUrl, umkm_approved: existing && String(existing.final_outputs_json || '') === JSON.stringify(finalOutputs) && String(existing.items_json || '') === JSON.stringify(stampedItems) && String(existing.umkm_approval_url || '') === umkmApprovalUrl ? existing.umkm_approved || '' : '',
+      umkm_note: existing ? existing.umkm_note || '' : '', review_note: existing ? existing.review_note || '' : '', reviewed_by: existing ? existing.reviewed_by || '' : '', reviewed_at: existing ? existing.reviewed_at || '' : '',
+      updated_at: timestamp, revision: Number(existing && existing.revision || 0) + 1, request_hash: requestHash,
+    };
+    if (existing) updateObjectById_(SHEETS.weeklyReports, existing.id, row);
+    else appendObject_(SHEETS.weeklyReports, row);
+    appendWeeklyHistory_(row, profile.email, 'save', requestId, requestHash);
+    if (week === 3) upsertFinalOutputs_(row, finalOutputs);
+    audit_(profile.email, 'submitWeeklyReport', 'weekly_report', row.id, { team_id: row.team_id, week: week, status: row.report_status, revision: row.revision });
+    return { ok: true, row: reportForClient_(row) };
+  } finally { lock.releaseLock(); }
+}
+
+function reviewWeeklyReport_(payload) {
+  const profile = requireProfile_(payload);
+  const decision = String(payload.decision || '');
+  if (!['revision', 'verified', 'umkm_approve', 'umkm_revision'].includes(decision)) throw apiError_('INVALID_REVIEW', 'Keputusan review tidak valid.');
+  if (decision === 'verified' && !isAdminRole_(profile.role)) throw apiError_('FORBIDDEN', 'Hanya panitia dapat memverifikasi laporan.');
+  if (decision === 'revision' && !isAdminRole_(profile.role) && profile.role !== 'dosen') throw apiError_('FORBIDDEN', 'Hanya dosen atau panitia dapat meminta revisi.');
+  if (decision.startsWith('umkm_') && profile.role !== 'umkm') throw apiError_('FORBIDDEN', 'Hanya UMKM mitra dapat memberi persetujuan UMKM.');
+  const note = String(payload.note || '').trim();
+  if (note.length > 1000 || ((decision === 'revision' || decision === 'umkm_revision') && !note)) throw apiError_('INVALID_NOTE', 'Catatan revisi wajib diisi, maksimal 1000 karakter.');
+  const requestId = String(payload.request_id || '').trim();
+  if (!requestId || requestId.length > 128) throw apiError_('REQUEST_ID_REQUIRED', 'ID review tidak valid.');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw apiError_('BUSY', 'Review sedang diproses. Coba lagi.');
+  try {
+    const ss = getSpreadsheet_();
+    ensureSheet_(ss, SHEETS.weeklyReports, SCHEMAS[SHEETS.weeklyReports]);
+    ensureSheet_(ss, SHEETS.weeklyReportHistory, SCHEMAS[SHEETS.weeklyReportHistory]);
+    const row = readObjects_(ss.getSheetByName(SHEETS.weeklyReports)).find((item) => String(item.id) === String(payload.report_id) && String(item.team_id).startsWith('byp26-'));
+    if (!row || !canAccessTeam_(profile, row.team_id)) throw apiError_('FORBIDDEN', 'Laporan tidak sesuai akses Anda.');
+    const hash = hashToken_(JSON.stringify({ reportId: row.id, decision: decision, note: note }));
+    const past = readObjects_(ss.getSheetByName(SHEETS.weeklyReportHistory)).find((item) => String(item.request_id) === requestId && String(item.actor_email) === profile.email);
+    if (past) {
+      if (String(past.request_hash) !== hash) throw apiError_('REQUEST_REUSED', 'ID review sudah dipakai untuk keputusan berbeda.');
+      if (decision === 'verified' && Number(row.week) === 3 && String(row.report_status) === 'verified') markFinalOutputsVerified_(row.id);
+      return { ok: true, row: reportForClient_(row), replayed: true };
+    }
+    if (String(row.report_status) !== 'submitted') throw apiError_('REVIEW_NOT_READY', 'Hanya laporan yang sudah dikirim dapat direview.');
+    if (decision === 'verified' && !canVerifyWeekly_(row)) throw apiError_('INCOMPLETE', 'Checklist, bukti, atau output final belum lengkap untuk verifikasi.');
+    const timestamp = now_();
+    const patch = { updated_at: timestamp, reviewed_at: timestamp, reviewed_by: profile.email, revision: Number(row.revision || 0) + 1 };
+    if (decision === 'verified') { patch.report_status = 'verified'; patch.validation = 'validated'; patch.review_note = note; }
+    if (decision === 'revision' || decision === 'umkm_revision') { patch.report_status = 'revision'; patch.validation = 'revision'; patch.review_note = note; }
+    if (decision === 'umkm_approve') { patch.umkm_approved = 'yes'; patch.umkm_note = note; }
+    updateObjectById_(SHEETS.weeklyReports, row.id, patch);
+    const updated = { ...row, ...patch };
+    appendWeeklyHistory_(updated, profile.email, decision, requestId, hash);
+    if (decision === 'verified' && Number(row.week) === 3) markFinalOutputsVerified_(row.id);
+    audit_(profile.email, 'reviewWeeklyReport', 'weekly_report', row.id, { decision: decision, team_id: row.team_id });
+    return { ok: true, row: reportForClient_(updated) };
+  } finally { lock.releaseLock(); }
+}
+
+function parseJson_(value, fallback) {
+  try { return JSON.parse(String(value || '')); } catch (error) { return fallback; }
+}
+
+function checkedUrl_(value) {
+  const url = String(value || '').trim();
+  if (!url) return '';
+  if (url.length > 2048 || !/^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(url)) throw apiError_('INVALID_URL', 'Tautan bukti harus URL http atau https yang valid.');
+  return url;
+}
+
+function parseWeeklyItems_(value, week) {
+  const input = parseJson_(value, null);
+  const expected = WEEKLY_PLAN_2026[week];
+  if (!Array.isArray(input) || input.length !== expected.length || new Set(input.map((item) => item && item.id)).size !== expected.length) throw apiError_('INVALID_ITEMS', 'Checklist periode tidak lengkap.');
+  return expected.map((id) => {
+    const item = input.find((entry) => entry && entry.id === id);
+    if (!item || !['todo', 'doing', 'done'].includes(item.status)) throw apiError_('INVALID_ITEMS', 'Status checklist tidak valid.');
+    const evidenceUrl = checkedUrl_(item.evidenceUrl);
+    const note = String(item.note || '').trim();
+    if (note.length > 500 || (item.status === 'done' && !evidenceUrl)) throw apiError_('INVALID_ITEMS', 'Item selesai memerlukan tautan bukti dan catatan maksimal 500 karakter.');
+    return { id: id, status: item.status, evidenceUrl: evidenceUrl, note: note };
+  });
+}
+
+function parseFinalOutputs_(value, week) {
+  if (week !== 3) return { marketing: '', catalog: '', business: '', contentLinks: ['', '', ''] };
+  const input = parseJson_(value, {});
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw apiError_('INVALID_OUTPUTS', 'Berkas final tidak valid.');
+  const links = Array.isArray(input.contentLinks) ? input.contentLinks : [];
+  if (links.length > 3) throw apiError_('INVALID_OUTPUTS', 'Maksimal tiga tautan konten publikasi.');
+  return {
+    marketing: checkedUrl_(input.marketing), catalog: checkedUrl_(input.catalog), business: checkedUrl_(input.business),
+    contentLinks: [0, 1, 2].map((index) => checkedUrl_(links[index])),
   };
-  return persistSubmission_(SHEETS.weeklyReports, row, profile, 'submitWeeklyReport', 'weekly_report');
+}
+
+function evidencedCount_(items) {
+  return items.filter((item) => item.status === 'done' && item.evidenceUrl).length;
+}
+
+function reportForClient_(row) {
+  if (!row) return null;
+  const week = Number(row.week || 0);
+  const items = parseJson_(row.items_json, []);
+  const finalOutputs = parseJson_(row.final_outputs_json, { marketing: '', catalog: '', business: '', contentLinks: ['', '', ''] });
+  const status = row.report_status || ({ validated: 'verified', revision: 'revision', draft: 'draft' }[row.validation] || 'submitted');
+  const expected = WEEKLY_PLAN_2026[week] || [];
+  const complete = Array.isArray(items) ? evidencedCount_(items) : 0;
+  const completion = expected.length ? Math.round(70 * complete / expected.length + (status === 'verified' ? 30 : 0)) : 0;
+  return {
+    id: row.id, teamId: row.team_id, week: week, activity: row.activity || '', progress: row.progress || '',
+    obstacles: row.obstacles || '', nextPlan: row.next_plan || '', driveLink: row.drive_link || '',
+    publicationLink: row.publication_link || '', validation: row.validation || 'pending', status: status,
+    items: Array.isArray(items) ? items : [], finalOutputs: finalOutputs, umkmApprovalUrl: row.umkm_approval_url || '',
+    umkmApproved: String(row.umkm_approved || '') === 'yes', umkmNote: row.umkm_note || '', reviewNote: row.review_note || '',
+    submittedBy: row.submitted_by || '', submittedAt: row.submitted_at || '', updatedAt: row.updated_at || row.submitted_at || '',
+    reviewedBy: row.reviewed_by || '', reviewedAt: row.reviewed_at || '', revision: Number(row.revision || 0), completion: completion,
+  };
+}
+
+function canVerifyWeekly_(row) {
+  const week = Number(row.week);
+  const items = parseJson_(row.items_json, []);
+  if (!WEEKLY_PLAN_2026[week] || !Array.isArray(items) || items.length !== WEEKLY_PLAN_2026[week].length || evidencedCount_(items) !== items.length) return false;
+  if (week !== 3) return true;
+  const finalOutputs = parseJson_(row.final_outputs_json, {});
+  try {
+    return Object.keys(FINAL_OUTPUT_TYPES).every((key) => checkedUrl_(finalOutputs[key]))
+      && Array.isArray(finalOutputs.contentLinks) && finalOutputs.contentLinks.length === 3 && finalOutputs.contentLinks.every((url) => checkedUrl_(url))
+      && (String(row.umkm_approved || '') === 'yes' || !!checkedUrl_(row.umkm_approval_url));
+  } catch (error) { return false; }
+}
+
+function appendWeeklyHistory_(row, actorEmail, action, requestId, requestHash) {
+  appendObject_(SHEETS.weeklyReportHistory, {
+    id: makeId_('wr-history'), report_id: row.id, team_id: row.team_id, week: row.week, action: action,
+    actor_email: actorEmail, status: row.report_status, snapshot_json: JSON.stringify(reportForClient_(row)),
+    created_at: now_(), request_id: requestId, request_hash: requestHash,
+  });
+}
+
+function upsertFinalOutputs_(report, finalOutputs) {
+  const ss = getSpreadsheet_();
+  ensureSheet_(ss, SHEETS.outputs, SCHEMAS[SHEETS.outputs]);
+  const outputs = readObjects_(ss.getSheetByName(SHEETS.outputs));
+  Object.keys(FINAL_OUTPUT_TYPES).forEach((key) => {
+    const id = 'byp26-final-' + report.team_id + '-' + key;
+    const url = finalOutputs[key] || '';
+    const existing = outputs.find((item) => String(item.id) === id);
+    if (!url && !existing) return;
+    const patch = { type: FINAL_OUTPUT_TYPES[key], title: FINAL_OUTPUT_TYPES[key], drive_link: url,
+      link_status: url ? 'valid format' : 'kosong', status: url ? 'submitted' : 'draft', source_report_id: report.id,
+      submitted_by: report.submitted_by, submitted_at: report.updated_at };
+    if (existing) updateObjectById_(SHEETS.outputs, id, patch);
+    else appendObject_(SHEETS.outputs, { id: id, team_id: report.team_id, ...patch, publication_link: '', umkm_feedback: 'Menunggu verifikasi laporan', request_id: report.request_id });
+  });
+}
+
+function markFinalOutputsVerified_(reportId) {
+  const outputs = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.outputs));
+  outputs.filter((item) => String(item.source_report_id) === String(reportId)).forEach((item) => {
+    updateObjectById_(SHEETS.outputs, item.id, { status: 'approved', umkm_feedback: 'Terverifikasi bersama laporan Minggu 3' });
+  });
 }
 
 function submitOutput_(payload) {
@@ -624,24 +946,51 @@ function submitScore_(payload) {
 
 function submitAttendance_(payload) {
   const profile = requireProfile_(payload);
-  if (!isAdminRole_(profile.role) && !isStudentRole_(profile.role)) return { ok: false, error: 'Role tidak boleh mengisi presensi.' };
-  if (payload.team_id && !canAccessTeam_(profile, payload.team_id)) return { ok: false, error: 'Tim tidak sesuai dengan akses pengguna.' };
-  const tokenResult = validateAttendanceToken_(payload.token);
-  const row = {
-    id: makeId_('att'),
-    session_id: tokenResult.session_id || '',
-    team_id: payload.team_id || '',
-    name: profile.name,
-    email: profile.email,
-    latitude: payload.latitude || '',
-    longitude: payload.longitude || '',
-    photo_drive_url: savePhotoIfPresent_(payload),
-    status: tokenResult.ok ? 'valid' : 'pending_review',
-    submitted_at: now_(),
-  };
-  appendObject_(SHEETS.attendanceRecords, row);
-  audit_(profile.email, 'submitAttendance', 'attendance', row.id, row);
-  return { ok: true, row: row, token: tokenResult };
+  if (!isStudentRole_(profile.role) || !profile.teamId) throw apiError_('FORBIDDEN', 'Hanya mahasiswa yang sudah ditetapkan tim dapat mengisi presensi.');
+  const session = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.attendanceSessions)).find((row) => String(row.token) === String(payload.token || '') && String(row.id).startsWith('byp26-'));
+  const now = Date.now();
+  if (!session || !Number.isFinite(Date.parse(session.starts_at)) || !Number.isFinite(Date.parse(session.ends_at)) || now < Date.parse(session.starts_at) || now > Date.parse(session.ends_at)) throw apiError_('SESSION_CLOSED', 'Kode presensi tidak valid atau sesi sudah ditutup.');
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+  const accuracy = Number(payload.accuracy_meters);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(accuracy) || accuracy <= 0 || accuracy > 100) throw apiError_('LOCATION_INVALID', 'GPS tidak cukup akurat. Aktifkan lokasi presisi dan coba lagi.');
+  const distance = distanceMeters_(latitude, longitude, Number(session.latitude), Number(session.longitude));
+  if (!Number.isFinite(distance) || distance > Number(session.radius_meters)) throw apiError_('OUTSIDE_AREA', 'Lokasi berada di luar area presensi.');
+  if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(String(payload.photo_base64 || '')) || String(payload.photo_base64).length > 1500000) throw apiError_('PHOTO_REQUIRED', 'Ambil selfie JPEG sebelum mengirim presensi.');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw apiError_('BUSY', 'Presensi sedang diproses. Coba lagi.');
+  try {
+    const records = readObjects_(getSpreadsheet_().getSheetByName(SHEETS.attendanceRecords));
+    if (records.some((row) => String(row.session_id) === String(session.id) && String(row.email).toLowerCase() === profile.email)) throw apiError_('DUPLICATE', 'Anda sudah presensi pada sesi ini.');
+    const photoUrl = savePhotoIfPresent_(payload);
+    if (!photoUrl) throw apiError_('PHOTO_FAILED', 'Foto belum dapat disimpan. Hubungi panitia.');
+    const row = { id: makeId_('att'), session_id: session.id, team_id: profile.teamId, name: profile.name, email: profile.email, latitude: latitude, longitude: longitude, accuracy_meters: accuracy, photo_drive_url: photoUrl, status: 'valid', submitted_at: now_() };
+    appendObject_(SHEETS.attendanceRecords, row);
+    audit_(profile.email, 'submitAttendance', 'attendance', row.id, { session_id: session.id, team_id: profile.teamId, distance_meters: Math.round(distance) });
+    return { ok: true, row: row };
+  } finally { lock.releaseLock(); }
+}
+
+function createAttendanceSession_(payload) {
+  const actor = requireProfile_(payload);
+  if (!isAdminRole_(actor.role)) throw apiError_('FORBIDDEN', 'Hanya admin dapat membuat sesi presensi.');
+  const title = String(payload.title || '').trim();
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
+  const accuracy = Number(payload.accuracy_meters);
+  const duration = Number(payload.duration_minutes);
+  if (!title || title.length > 120 || !Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(accuracy) || accuracy <= 0 || accuracy > 100 || !Number.isInteger(duration) || duration < 15 || duration > 480) throw apiError_('INVALID_SESSION', 'Isi judul, GPS presisi, dan durasi 15-480 menit.');
+  const now = Date.now();
+  const row = { id: makeId_('byp26-att'), module_id: '', title: title, token: 'BY26-' + Utilities.getUuid(), starts_at: new Date(now).toISOString(), ends_at: new Date(now + duration * 60000).toISOString(), location: 'Lokasi panitia saat sesi dibuat', latitude: latitude, longitude: longitude, radius_meters: 250, created_at: now_() };
+  appendObject_(SHEETS.attendanceSessions, row);
+  audit_(actor.email, 'createAttendanceSession', 'attendance_session', row.id, { title: title, expires_at: row.ends_at });
+  return { ok: true, session: { id: row.id, title: row.title, token: row.token, startsAt: row.starts_at, endsAt: row.ends_at, location: row.location } };
+}
+
+function distanceMeters_(lat1, lon1, lat2, lon2) {
+  const radians = (degrees) => degrees * Math.PI / 180;
+  const a = Math.sin(radians(lat2 - lat1) / 2) ** 2 + Math.cos(radians(lat1)) * Math.cos(radians(lat2)) * Math.sin(radians(lon2 - lon1) / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function exportCsv_(payload) {
@@ -747,15 +1096,6 @@ function getSeedTeams_() {
     { id: 'g9', name: 'Kelompok 9', campus_id: 'campus-unmuh', umkm_id: 'umkm-charcoal', members: ['Muhammad Muda Wali', 'Haruku Maulana', 'Iqmal Prakoso'], progress: 59, status: 'perlu_perhatian', reports: 2, outputs: 2, attendance: 74 },
     { id: 'g10', name: 'Kelompok 10', campus_id: 'campus-unaba', umkm_id: 'umkm-deviz', members: ['Iis Kholifah', 'Danil Eko Saputra', 'Gustia'], progress: 28, status: 'kritis', reports: 1, outputs: 1, attendance: 58 },
   ];
-}
-
-function validateAttendanceToken_(token) {
-  if (!token) return { ok: false, message: 'Token kosong.' };
-  const parts = String(token).split(':');
-  if (parts.length < 3 || parts[0] !== 'BY') return { ok: false, message: 'Format token tidak valid.' };
-  const issuedAt = Number(parts[2]);
-  const expired = Date.now() - issuedAt > 30 * 1000;
-  return { ok: !expired, session_id: parts[1], expired: expired };
 }
 
 function savePhotoIfPresent_(payload) {

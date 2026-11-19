@@ -19,6 +19,7 @@ import { readStoredSession } from '@/auth/session-storage'
 import { getMonitoringConfig, hasGoogleBackend } from '@/lib/monitoring-config'
 import { postAction } from '@/services/monitoring-api'
 import { prepareSubmission, saveSubmission, type SubmissionAttempt } from './submission'
+import WeeklyReports2026, { type WeeklyReport } from './WeeklyReports2026'
 import './MonitoringPage.css'
 
 type Role = 'admin' | 'dosen' | 'mahasiswa' | 'umkm' | 'juri' | 'viewer'
@@ -53,19 +54,6 @@ type Team = {
 type LearningModule = { id: string; title: string; date: string; materialName: string; materialUrl: string }
 type AttendanceSession = { id: string; title: string; token: string; startsAt: string; endsAt: string; location: string }
 type AttendanceRecord = { id: string; sessionId: string; teamId: string; name: string; status: string; submittedAt: string; photoUrl: string }
-
-type WeeklyReport = {
-  id: string
-  teamId: string
-  week: number
-  activity: string
-  progress: string
-  obstacles?: string
-  nextPlan?: string
-  driveLink?: string
-  publicationLink?: string
-  validation: 'pending' | 'validated' | 'revision'
-}
 
 type OutputItem = {
   id: string
@@ -298,7 +286,10 @@ function MonitoringPage() {
           {view === 'dashboard' && <Dashboard profile={profile} teams={scopedTeams} reports={data.reports} outputs={data.outputs} />}
           {view === 'learning' && <LearningCenter profile={profile} modules={data.learningModules} setData={setData} />}
           {view === 'attendance' && <AttendanceCenter profile={profile} teams={scopedTeams} sessions={data.attendanceSessions} records={data.attendanceRecords} setData={setData} />}
-          {view === 'weekly' && <WeeklyMonitoring profile={profile} teams={scopedTeams} reports={data.reports} setData={setData} />}
+          {view === 'weekly' && <WeeklyReports2026 profile={profile} teams={scopedTeams} reports={data.reports} onReport={(report) => {
+            setData((current) => ({ ...current, reports: [report, ...current.reports.filter((item) => item.id !== report.id)] }))
+            if (report.week === 3) void fetchGoogleData().then(setData).catch(() => {})
+          }} />}
           {view === 'outputs' && <OutputTracker profile={profile} teams={scopedTeams} outputs={data.outputs} setData={setData} />}
           {view === 'challenge' && <ChallengeScoring profile={profile} teams={scopedTeams} scores={data.scores} />}
           {view === 'pendamping' && <MentorCenter profile={profile} mentors={data.mentors} teams={scopedTeams} />}
@@ -517,134 +508,6 @@ function AttendanceCenter({ profile, teams, sessions, records, setData }: { prof
     {message && <p className="form-message" role="status">{message}</p>}
     <section className="panel"><div className="panel-title"><h3>Riwayat Presensi</h3>{profile.role === 'admin' && <button className="monitoring-button" onClick={() => downloadCsv('presensi-2026.csv', visibleRecords.map((row) => ({ nama: row.name, tim: teams.find((team) => team.id === row.teamId)?.name ?? '', sesi: row.sessionId, waktu: row.submittedAt, status: row.status, foto: row.photoUrl })))}><Download size={16} /> CSV</button>}</div><div className="report-list">{visibleRecords.length === 0 && <div className="empty-state">Belum ada presensi tercatat.</div>}{visibleRecords.map((row) => <article className="attendance-card" key={row.id}><strong>{row.name}</strong><p>{teams.find((team) => team.id === row.teamId)?.name ?? ''} · {new Date(row.submittedAt).toLocaleString('id-ID')}</p><span className="status-pill approved">{row.status}</span></article>)}</div></section>
   </div>
-}
-
-function WeeklyMonitoring({ profile, teams: visibleTeams, reports: activeReports, setData }: { profile: Profile; teams: Team[]; reports: WeeklyReport[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
-  const visibleReports = activeReports.filter((report) => visibleTeams.some((team) => team.id === report.teamId))
-  const [teamId, setTeamId] = useState(visibleTeams[0]?.id ?? '')
-  const [activity, setActivity] = useState('')
-  const [progress, setProgress] = useState('')
-  const [message, setMessage] = useState('')
-  const [week, setWeek] = useState(1)
-  const [obstacles, setObstacles] = useState('')
-  const [nextPlan, setNextPlan] = useState('')
-  const [driveLink, setDriveLink] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const inFlight = useRef(false)
-  const attempt = useRef<SubmissionAttempt | null>(null)
-  const selectedTeamId = teamId || visibleTeams[0]?.id || ''
-
-  async function submitWeeklyReport() {
-    if (inFlight.current) return
-    const targetTeam = visibleTeams.find((team) => team.id === selectedTeamId)
-    if (!targetTeam || !activity.trim() || !progress.trim() || !Number.isInteger(week) || week < 1 || week > 52) {
-      setMessage('Isi tim, aktivitas, dan progress sebelum mengirim laporan.')
-      return
-    }
-
-    const payload = {
-      team_id: targetTeam.id,
-      week,
-      activity: activity.trim(),
-      progress: progress.trim(),
-      obstacles: obstacles.trim(),
-      next_plan: nextPlan.trim(),
-      drive_link: driveLink.trim(),
-    }
-    attempt.current = prepareSubmission(payload, attempt.current)
-    inFlight.current = true
-    setIsSubmitting(true)
-    setMessage('')
-    try {
-      const row = await saveSubmission('submitWeeklyReport', payload, attempt.current.id)
-      const report: WeeklyReport = {
-        id: row.id, teamId: row.team_id, week: Number(row.week),
-        activity: String(row.activity ?? ''), progress: String(row.progress ?? ''),
-        obstacles: String(row.obstacles ?? ''), nextPlan: String(row.next_plan ?? ''),
-        driveLink: String(row.drive_link ?? ''), validation: String(row.validation ?? 'pending') as WeeklyReport['validation'],
-      }
-      setData((current) => {
-        const reports = [report, ...current.reports.filter((item) => item.id !== report.id)]
-        return { ...current, reports, teams: current.teams.map((team) => team.id === targetTeam.id ? { ...team, reports: reports.filter((item) => item.teamId === team.id).length } : team) }
-      })
-      attempt.current = null
-      setActivity('')
-      setProgress('')
-      setObstacles('')
-      setNextPlan('')
-      setDriveLink('')
-      setMessage('Laporan berhasil dikirim ke Google Sheet.')
-    } catch (error) {
-      setMessage(`${error instanceof Error ? error.message : 'Pengiriman belum dapat dikonfirmasi.'} Isian Anda tetap tersedia di halaman ini.`)
-    } finally {
-      inFlight.current = false
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="content-grid">
-      {(profile.role === 'admin' || profile.role === 'mahasiswa') && (
-        <section className="panel">
-          <div className="panel-title">
-            <h3>Input Laporan Mingguan</h3>
-            <span className="muted">Pilih minggu dan lampirkan bukti</span>
-          </div>
-          <div className="stepper-grid" inert={isSubmitting}>
-            <article className="form-step">
-              <label>
-                Tim
-                <select value={selectedTeamId} onChange={(event) => setTeamId(event.target.value)}>
-                  <option value="">Pilih tim</option>
-                  {visibleTeams.map((team) => <option value={team.id} key={team.id}>{team.name}</option>)}
-                </select>
-              </label>
-              <label>Minggu laporan <input type="number" min={1} max={52} value={week} onChange={(event) => setWeek(Number(event.target.value))} /></label>
-              <label>
-                Aktivitas minggu ini
-                <textarea maxLength={10000} value={activity} onChange={(event) => setActivity(event.target.value)} placeholder="Kegiatan, kunjungan, diskusi, produksi konten..." />
-              </label>
-            </article>
-            <article className="form-step">
-              <label>
-                Progres output
-                <textarea maxLength={10000} value={progress} onChange={(event) => setProgress(event.target.value)} placeholder="Hasil yang sudah diselesaikan minggu ini..." />
-              </label>
-              <label>Kendala <textarea value={obstacles} onChange={(event) => setObstacles(event.target.value)} /></label>
-              <label>Rencana tindak lanjut <textarea value={nextPlan} onChange={(event) => setNextPlan(event.target.value)} /></label>
-              <label>Link bukti <input type="url" value={driveLink} onChange={(event) => setDriveLink(event.target.value)} placeholder="https://drive.google.com/..." /></label>
-              <button className="monitoring-button primary" disabled={isSubmitting || !selectedTeamId} onClick={submitWeeklyReport}>{isSubmitting ? 'Mengirim...' : 'Kirim laporan'}</button>
-            </article>
-          </div>
-          {message && <p className="form-message" role="status">{message}</p>}
-        </section>
-      )}
-      <section className="panel">
-        <div className="panel-title">
-          <h3>Laporan Masuk</h3>
-          <span className="muted">{visibleReports.length} laporan</span>
-        </div>
-        <div className="report-list">
-          {visibleReports.map((report) => {
-            const team = visibleTeams.find((item) => item.id === report.teamId)
-            return (
-              <article className="report-card" key={report.id}>
-                <div>
-                  <strong>{team?.name ?? '-'} - Minggu {report.week}</strong>
-                  <p>{report.activity}</p>
-                  <span>{report.progress}</span>
-                  {report.obstacles && <p>Kendala: {report.obstacles}</p>}
-                  {report.nextPlan && <p>Tindak lanjut: {report.nextPlan}</p>}
-                  {/^https?:\/\//i.test(report.driveLink ?? '') && <a href={report.driveLink} target="_blank" rel="noreferrer">Buka bukti</a>}
-                </div>
-                <span className={`status-pill ${report.validation}`}>{statusLabel(report.validation)}</span>
-              </article>
-            )
-          })}
-        </div>
-      </section>
-    </div>
-  )
 }
 
 function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, setData }: { profile: Profile; teams: Team[]; outputs: OutputItem[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
