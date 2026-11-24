@@ -699,6 +699,20 @@
   display: block;
 }
 
+.team-photo {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #eaf1f5;
+}
+
+.team-line > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .learning-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

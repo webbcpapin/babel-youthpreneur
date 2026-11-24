@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/auth/useAuth'
 import { readStoredSession } from '@/auth/session-storage'
 import { getMonitoringConfig, hasGoogleBackend } from '@/lib/monitoring-config'
+import { getTeamPhoto } from '@/lib/team-photos'
 import { postAction } from '@/services/monitoring-api'
 import { prepareSubmission, saveSubmission, type SubmissionAttempt } from './submission'
 import WeeklyReports2026, { type WeeklyReport } from './WeeklyReports2026'
@@ -849,6 +850,12 @@ function Metric({ label, value, hint }: { label: string; value: string | number;
   )
 }
 
+function TeamPhoto({ team }: { team: Team }) {
+  const photo = getTeamPhoto(team.id)
+  if (!photo) return <div className="avatar">{initials(team.name)}</div>
+  return <img className="team-photo" src={photo} alt={`Foto tim ${team.nickname || team.name}`} loading="lazy" decoding="async" />
+}
+
 function TeamList({ teams: visibleTeams }: { teams: Team[] }) {
   if (visibleTeams.length === 0) return <div className="empty-state">Tidak ada tim yang cocok dengan pencarian.</div>
 
@@ -857,7 +864,7 @@ function TeamList({ teams: visibleTeams }: { teams: Team[] }) {
       {visibleTeams.map((team) => (
         <article className="team-card" key={team.id}>
           <div className="team-line">
-            <div className="avatar">{initials(team.name)}</div>
+            <TeamPhoto team={team} />
             <div>
               <strong>{team.name}</strong>
               {team.nickname && <span className="team-nickname">{team.nickname}</span>}
