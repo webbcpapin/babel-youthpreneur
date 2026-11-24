@@ -87,15 +87,28 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
   const [busy, setBusy] = useState(false)
   const inFlight = useRef(false)
   const attempt = useRef<SubmissionAttempt | null>(null)
-  const chosenTeam = teams.find((team) => team.id === teamFilter) || teams[0]
+  const campusTeams = useMemo(
+    () => teams.filter((team) => !campusFilter || team.campus === campusFilter),
+    [teams, campusFilter],
+  )
+  const umkmOptions = [...new Set(campusTeams.map((team) => team.umkm).filter(Boolean))]
+  const selectedUmkm = umkmOptions.includes(umkmFilter) ? umkmFilter : ''
+  const filteredTeams = useMemo(() => campusTeams.filter((team) =>
+    (!selectedUmkm || team.umkm === selectedUmkm)
+    && (!statusFilter || periods.some((item) => stateOf(reports.find((row) => row.teamId === team.id && row.week === item.week)) === statusFilter))
+  ), [campusTeams, reports, selectedUmkm, statusFilter])
+  const chosenTeam = filteredTeams.find((team) => team.id === teamFilter) || filteredTeams[0]
   const report = reports.find((row) => row.teamId === chosenTeam?.id && row.week === week)
   const period = periods[week - 1]
   const isStudent = profile.role === 'mahasiswa'
   const editable = isStudent && stateOf(report) !== 'verified'
-  const filteredTeams = useMemo(() => teams.filter((team) =>
-    (!campusFilter || team.campus === campusFilter) && (!umkmFilter || team.umkm === umkmFilter)
-    && (!statusFilter || periods.some((item) => stateOf(reports.find((row) => row.teamId === team.id && row.week === item.week)) === statusFilter))
-  ), [teams, reports, campusFilter, umkmFilter, statusFilter])
+
+  function changeCampus(campus: string) {
+    setCampusFilter(campus)
+    if (campus && !teams.some((team) => team.campus === campus && team.umkm === selectedUmkm)) {
+      setUmkmFilter('')
+    }
+  }
 
   useEffect(() => {
     setItems(period.tasks.map(({ id }) => report?.items?.find((item) => item.id === id) || { id, status: 'todo', evidenceUrl: '', note: '' }))
@@ -156,8 +169,8 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
         {['admin', 'dosen'].includes(profile.role) && <button className="monitoring-button" onClick={() => downloadCsv(exportRows)}><Download size={16} /> CSV</button>}
       </div>
       {['admin', 'dosen'].includes(profile.role) && <div className="weekly-filters">
-        <label>Kampus<select value={campusFilter} onChange={(event) => setCampusFilter(event.target.value)}><option value="">Semua</option>{[...new Set(teams.map((team) => team.campus))].map((value) => <option key={value}>{value}</option>)}</select></label>
-        <label>UMKM<select value={umkmFilter} onChange={(event) => setUmkmFilter(event.target.value)}><option value="">Semua</option>{[...new Set(teams.map((team) => team.umkm))].map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label>Kampus<select value={campusFilter} onChange={(event) => changeCampus(event.target.value)}><option value="">Semua</option>{[...new Set(teams.map((team) => team.campus))].map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label>UMKM<select value={selectedUmkm} onChange={(event) => setUmkmFilter(event.target.value)}><option value="">{campusFilter ? 'Semua UMKM kampus ini' : 'Semua'}</option>{umkmOptions.map((value) => <option key={value}>{value}</option>)}</select></label>
         <label>Status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">Semua</option>{Object.entries(statusText).map(([key, value]) => <option value={key} key={key}>{value}</option>)}</select></label>
       </div>}
       {['admin', 'dosen'].includes(profile.role) && <div className="weekly-matrix" role="table" aria-label="Matriks laporan mingguan">
@@ -165,6 +178,7 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
         {filteredTeams.map((team) => <div className="weekly-matrix-row" role="row" key={team.id}><strong>{team.name}<small>{team.umkm} · {team.campus}</small></strong>{periods.map((item) => { const row = reports.find((entry) => entry.teamId === team.id && entry.week === item.week); return <button key={item.week} className={`weekly-status ${stateOf(row)}`} onClick={() => { setTeamFilter(team.id); setWeek(item.week) }}>{statusText[stateOf(row)]}<small>{weeklyCompletion(row, item.week)}%</small></button> })}</div>)}
       </div>}
       {teams.length === 0 && <p className="empty-state">Belum ada tim yang dapat diakses.</p>}
+      {teams.length > 0 && filteredTeams.length === 0 && <p className="empty-state">Tidak ada laporan yang cocok dengan filter.</p>}
     </section>
     {chosenTeam && <><section className="panel"><div className="panel-title"><div><h3>{chosenTeam.name}</h3><p className="muted">{chosenTeam.campus} · {chosenTeam.umkm}</p></div><strong>{Math.round(periods.reduce((sum, item) => sum + weeklyCompletion(reports.find((row) => row.teamId === chosenTeam.id && row.week === item.week), item.week), 0) / 3)}%</strong></div>
       <p className="muted">Progres tiap minggu = 70% checklist selesai dengan bukti + 30% setelah verifikasi panitia. Progres keseluruhan = rata-rata tiga minggu.</p>
