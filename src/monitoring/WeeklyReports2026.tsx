@@ -9,7 +9,7 @@ export type FinalOutputs = { marketing: string; catalog: string; business: strin
 export type WeeklyReport = {
   id: string; teamId: string; week: number; status?: 'draft' | 'submitted' | 'revision' | 'verified'
   items?: WeeklyItem[]; finalOutputs?: FinalOutputs; umkmApprovalUrl?: string; umkmApproved?: boolean
-  obstacles?: string; nextPlan?: string; reviewNote?: string; umkmNote?: string; updatedAt?: string
+  obstacles?: string; nextPlan?: string; plannedVisitAt?: string; reviewNote?: string; umkmNote?: string; updatedAt?: string
   submittedBy?: string; reviewedBy?: string; revision?: number; completion?: number
   activity?: string; progress?: string; validation?: 'pending' | 'validated' | 'revision' | 'draft'
 }
@@ -81,6 +81,7 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
   const [outputs, setOutputs] = useState<FinalOutputs>(emptyOutputs)
   const [obstacles, setObstacles] = useState('')
   const [nextPlan, setNextPlan] = useState('')
+  const [plannedVisitAt, setPlannedVisitAt] = useState('')
   const [approvalUrl, setApprovalUrl] = useState('')
   const [reviewNote, setReviewNote] = useState('')
   const [message, setMessage] = useState('')
@@ -115,6 +116,7 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
     setOutputs(report?.finalOutputs || emptyOutputs())
     setObstacles(report?.obstacles || '')
     setNextPlan(report?.nextPlan || '')
+    setPlannedVisitAt(report?.plannedVisitAt || '')
     setApprovalUrl(report?.umkmApprovalUrl || '')
     setReviewNote('')
     attempt.current = null
@@ -126,7 +128,7 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
     if (mode === 'submit' && !items.some((item) => safeUrl(item.evidenceUrl))) { setMessage('Tambahkan setidaknya satu tautan bukti.'); return }
     if (items.some((item) => item.status === 'done' && !safeUrl(item.evidenceUrl))) { setMessage('Item selesai memerlukan tautan bukti yang valid.'); return }
     const payload = { team_id: chosenTeam.id, week, mode, items_json: JSON.stringify(items), final_outputs_json: JSON.stringify(outputs),
-      obstacles: obstacles.trim(), next_plan: nextPlan.trim(), umkm_approval_url: approvalUrl.trim() }
+      obstacles: obstacles.trim(), next_plan: nextPlan.trim(), planned_visit_at: plannedVisitAt, umkm_approval_url: approvalUrl.trim() }
     attempt.current = prepareSubmission(payload, attempt.current)
     inFlight.current = true; setBusy(true); setMessage('')
     try {
@@ -160,8 +162,13 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
       bukti: (row?.items || []).map((entry) => safeUrl(entry.evidenceUrl)).filter(Boolean).join(' | '),
       strategi_marketing: final?.marketing || '', katalog: final?.catalog || '', ide_bisnis: final?.business || '',
       konten_publikasi: (final?.contentLinks || []).join(' | '), siap_challenge: challengeReady(row) ? 'Ya' : 'Belum',
-      kendala: row?.obstacles || '', tindak_lanjut: row?.nextPlan || '', catatan_review: row?.reviewNote || '' }
+      kendala: row?.obstacles || '', tindak_lanjut: row?.nextPlan || '', rencana_kunjungan_wib: row?.plannedVisitAt || '', catatan_review: row?.reviewNote || '' }
   }))
+
+  const plannedVisits = filteredTeams.flatMap((team) => reports
+    .filter((row) => row.teamId === team.id && row.plannedVisitAt)
+    .map((row) => ({ id: row.id, team: team.name, campus: team.campus, umkm: team.umkm, week: row.week, date: row.plannedVisitAt || '' })))
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   return <div className="content-grid weekly-workspace">
     <section className="panel">
@@ -180,12 +187,29 @@ export default function WeeklyReports2026({ profile, teams, reports, onReport }:
       {teams.length === 0 && <p className="empty-state">Belum ada tim yang dapat diakses.</p>}
       {teams.length > 0 && filteredTeams.length === 0 && <p className="empty-state">Tidak ada laporan yang cocok dengan filter.</p>}
     </section>
+    {['admin', 'dosen'].includes(profile.role) && <section className="panel">
+      <div className="panel-title"><div><h3>Rencana Kunjungan ke UMKM</h3><p className="muted">Jadwal yang diisi mahasiswa melalui laporan mingguan. Panitia dapat menghubungi tim untuk ikut mendokumentasikan kunjungan.</p></div></div>
+      <div className="report-list">
+        {plannedVisits.length === 0 && <p className="empty-state">Belum ada rencana kunjungan dari tim pada filter ini.</p>}
+        {plannedVisits.map((visit) => <article className="attendance-card" key={`${visit.id}:${visit.date}`}>
+          <strong>{visit.umkm}</strong>
+          <p>{visit.team} · {visit.campus}</p>
+          <p><strong>{visit.date.replace('T', ' ')} WIB</strong> · Dicatat di Minggu {visit.week}</p>
+        </article>)}
+      </div>
+    </section>}
     {chosenTeam && <><section className="panel"><div className="panel-title"><div><h3>{chosenTeam.name}</h3><p className="muted">{chosenTeam.campus} · {chosenTeam.umkm}</p></div><strong>{Math.round(periods.reduce((sum, item) => sum + weeklyCompletion(reports.find((row) => row.teamId === chosenTeam.id && row.week === item.week), item.week), 0) / 3)}%</strong></div>
       <p className="muted">Progres tiap minggu = 70% checklist selesai dengan bukti + 30% setelah verifikasi panitia. Progres keseluruhan = rata-rata tiga minggu.</p>
       <div className="weekly-periods">{periods.map((item) => { const row = reports.find((entry) => entry.teamId === chosenTeam.id && entry.week === item.week); return <button className={week === item.week ? 'weekly-period active' : 'weekly-period'} key={item.week} onClick={() => setWeek(item.week)}><strong>Minggu {item.week}</strong><span>{item.dates}</span><small>{statusText[stateOf(row)]} · {weeklyCompletion(row, item.week)}%</small></button> })}</div>
       <div className="weekly-period-heading"><h3>Minggu {week}: {period.focus}</h3><span className={`status-pill ${stateOf(report)}`}>{statusText[stateOf(report)]}</span></div>
       {report?.reviewNote && <p className="weekly-note">Catatan review: {report.reviewNote}</p>}
       {report?.umkmNote && <p className="weekly-note">Catatan UMKM: {report.umkmNote}</p>}
+      <div className="weekly-text-fields">
+        <label>Rencana Kunjungan ke UMKM (tanggal dan jam WIB)
+          <input type="datetime-local" value={plannedVisitAt} disabled={!editable || busy} onChange={(event) => setPlannedVisitAt(event.target.value)} />
+        </label>
+        <p className="muted">Isi rencana kunjungan sebelum berangkat agar panitia dapat ikut dan mengambil dokumentasi. Jika jadwal berubah, perbarui isian lalu klik Simpan draft atau Kirim laporan.</p>
+      </div>
       <div className="weekly-task-list">{period.tasks.map((task) => { const item = items.find((entry) => entry.id === task.id) || { id: task.id, status: 'todo' as const, evidenceUrl: '', note: '' }; return <div className="weekly-task" key={task.id}><div className="weekly-task-title"><CheckCircle2 size={18} /><strong>{task.label}</strong></div><label>Status<select value={item.status} disabled={!editable || busy} onChange={(event) => patchItem(item.id, { status: event.target.value as WeeklyItem['status'] })}><option value="todo">Belum Dikerjakan</option><option value="doing">Proses</option><option value="done">Selesai</option></select></label><label>Tautan bukti<input type="url" value={item.evidenceUrl} disabled={!editable || busy} onChange={(event) => patchItem(item.id, { evidenceUrl: event.target.value })} placeholder="https://..." /></label><label>Catatan singkat<input value={item.note} maxLength={500} disabled={!editable || busy} onChange={(event) => patchItem(item.id, { note: event.target.value })} /></label><div className="weekly-task-foot">{safeUrl(item.evidenceUrl) && <a href={safeUrl(item.evidenceUrl)} target="_blank" rel="noopener noreferrer">Lihat bukti <ExternalLink size={13} /></a>}{item.updatedAt && <small>Diperbarui {new Date(item.updatedAt).toLocaleString('id-ID')}</small>}</div></div> })}</div>
       <div className="weekly-text-fields"><label>Kendala utama<textarea value={obstacles} maxLength={1000} disabled={!editable || busy} onChange={(event) => setObstacles(event.target.value)} /></label><label>Rencana tindak lanjut<textarea value={nextPlan} maxLength={1000} disabled={!editable || busy} onChange={(event) => setNextPlan(event.target.value)} /></label></div>
       {week === 3 && <div className="weekly-final"><h3>Berkas akhir challenge</h3><p className="muted">Tautan berikut otomatis masuk ke menu Output setelah tersimpan. PDF dan persetujuan UMKM diperiksa panitia.</p>{([['marketing', 'Digital Marketing Strategy PDF (minimal 3 halaman)'], ['catalog', 'Best Catalog Product PDF (3-10 halaman)'], ['business', 'Best Innovative Business Idea PDF (3-5 halaman)']] as const).map(([key, label]) => <label key={key}>{label}<input type="url" value={outputs[key]} disabled={!editable || busy} onChange={(event) => setOutputs((current) => ({ ...current, [key]: event.target.value }))} placeholder="https://drive.google.com/..." /></label>)}{[0, 1, 2].map((index) => <label key={index}>Konten publikasi {index + 1}<input type="url" value={outputs.contentLinks[index] || ''} disabled={!editable || busy} onChange={(event) => setOutputs((current) => ({ ...current, contentLinks: current.contentLinks.map((url, position) => position === index ? event.target.value : url) }))} placeholder="https://instagram.com/..." /></label>)}<label>Bukti persetujuan / serah terima UMKM<input type="url" value={approvalUrl} disabled={!editable || busy} onChange={(event) => setApprovalUrl(event.target.value)} placeholder="https://drive.google.com/..." /></label><p className="muted">Kesiapan challenge: {challengeReady(report) ? 'Siap dan terverifikasi' : 'Belum lengkap atau belum terverifikasi'}</p></div>}

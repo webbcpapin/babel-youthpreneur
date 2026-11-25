@@ -34,7 +34,7 @@ const SCHEMAS = {
   [SHEETS.learningModules]: ['id', 'course_id', 'title', 'date', 'status', 'progress', 'materials', 'assignment', 'quiz_average', 'created_at', 'material_url'],
   [SHEETS.attendanceSessions]: ['id', 'module_id', 'title', 'token', 'starts_at', 'ends_at', 'location', 'radius_meters', 'created_at', 'latitude', 'longitude'],
   [SHEETS.attendanceRecords]: ['id', 'session_id', 'team_id', 'name', 'email', 'latitude', 'longitude', 'photo_drive_url', 'status', 'submitted_at', 'accuracy_meters'],
-  [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at', 'request_id', 'program_year', 'report_status', 'items_json', 'final_outputs_json', 'umkm_approval_url', 'umkm_approved', 'umkm_note', 'review_note', 'reviewed_by', 'reviewed_at', 'updated_at', 'revision', 'request_hash'],
+  [SHEETS.weeklyReports]: ['id', 'team_id', 'week', 'activity', 'progress', 'obstacles', 'next_plan', 'drive_link', 'publication_link', 'validation', 'submitted_by', 'submitted_at', 'request_id', 'program_year', 'report_status', 'items_json', 'final_outputs_json', 'umkm_approval_url', 'umkm_approved', 'umkm_note', 'review_note', 'reviewed_by', 'reviewed_at', 'updated_at', 'revision', 'request_hash', 'planned_visit_at'],
   [SHEETS.weeklyReportHistory]: ['id', 'report_id', 'team_id', 'week', 'action', 'actor_email', 'status', 'snapshot_json', 'created_at', 'request_id', 'request_hash'],
   [SHEETS.outputs]: ['id', 'team_id', 'type', 'title', 'status', 'link_status', 'drive_link', 'publication_link', 'umkm_feedback', 'submitted_by', 'submitted_at', 'request_id', 'source_report_id'],
   [SHEETS.challengeScores]: ['id', 'team_id', 'category', 'score', 'note', 'judge_email', 'submitted_at'],
@@ -733,12 +733,13 @@ function submitWeeklyReport_(payload) {
   if (!requestId || requestId.length > 128) throw apiError_('REQUEST_ID_REQUIRED', 'ID pengiriman tidak valid.');
   const obstacles = String(payload.obstacles || '').trim();
   const nextPlan = String(payload.next_plan || '').trim();
+  const plannedVisitAt = checkedVisitDateTime_(payload.planned_visit_at);
   if (obstacles.length > 1000 || nextPlan.length > 1000) throw apiError_('TEXT_TOO_LONG', 'Kendala dan tindak lanjut maksimal 1000 karakter.');
   const items = parseWeeklyItems_(payload.items_json, week);
   const finalOutputs = parseFinalOutputs_(payload.final_outputs_json, week);
   const umkmApprovalUrl = checkedUrl_(payload.umkm_approval_url);
   if (mode === 'submit' && !items.some((item) => item.evidenceUrl)) throw apiError_('EVIDENCE_REQUIRED', 'Tambahkan setidaknya satu tautan bukti sebelum mengirim laporan.');
-  const normalized = { team_id: profile.teamId, week: week, mode: mode, items: items, finalOutputs: finalOutputs, obstacles: obstacles, nextPlan: nextPlan, umkmApprovalUrl: umkmApprovalUrl };
+  const normalized = { team_id: profile.teamId, week: week, mode: mode, items: items, finalOutputs: finalOutputs, obstacles: obstacles, nextPlan: nextPlan, umkmApprovalUrl: umkmApprovalUrl, plannedVisitAt: plannedVisitAt };
   const requestHash = hashToken_(JSON.stringify(normalized));
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw apiError_('BUSY', 'Laporan sedang disimpan. Coba lagi.');
@@ -763,7 +764,7 @@ function submitWeeklyReport_(payload) {
     });
     const row = {
       id: existing ? existing.id : makeId_('byp26-wr'), team_id: profile.teamId, week: week,
-      activity: '', progress: '', obstacles: obstacles, next_plan: nextPlan,
+      activity: '', progress: '', obstacles: obstacles, next_plan: nextPlan, planned_visit_at: plannedVisitAt,
       drive_link: '', publication_link: '', validation: mode === 'draft' ? 'draft' : 'pending',
       submitted_by: profile.email, submitted_at: mode === 'submit' ? timestamp : existing ? existing.submitted_at || '' : '',
       request_id: requestId, program_year: 2026, report_status: mode === 'draft' ? 'draft' : 'submitted',
@@ -834,6 +835,19 @@ function checkedUrl_(value) {
   return url;
 }
 
+function checkedVisitDateTime_(value) {
+  const planned = String(value || '').trim();
+  if (!planned) return '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(planned);
+  if (!match) throw apiError_('INVALID_VISIT_DATE', 'Isi rencana kunjungan dengan tanggal dan jam yang valid (WIB).');
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const valid = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  if (valid.getUTCFullYear() !== year || valid.getUTCMonth() + 1 !== month || valid.getUTCDate() !== day || valid.getUTCHours() !== hour || valid.getUTCMinutes() !== minute) {
+    throw apiError_('INVALID_VISIT_DATE', 'Tanggal atau jam kunjungan tidak valid.');
+  }
+  return planned;
+}
+
 function parseWeeklyItems_(value, week) {
   const input = parseJson_(value, null);
   const expected = WEEKLY_PLAN_2026[week];
@@ -875,7 +889,7 @@ function reportForClient_(row) {
   const completion = expected.length ? Math.round(70 * complete / expected.length + (status === 'verified' ? 30 : 0)) : 0;
   return {
     id: row.id, teamId: row.team_id, week: week, activity: row.activity || '', progress: row.progress || '',
-    obstacles: row.obstacles || '', nextPlan: row.next_plan || '', driveLink: row.drive_link || '',
+    obstacles: row.obstacles || '', nextPlan: row.next_plan || '', plannedVisitAt: row.planned_visit_at || '', driveLink: row.drive_link || '',
     publicationLink: row.publication_link || '', validation: row.validation || 'pending', status: status,
     items: Array.isArray(items) ? items : [], finalOutputs: finalOutputs, umkmApprovalUrl: row.umkm_approval_url || '',
     umkmApproved: String(row.umkm_approved || '') === 'yes', umkmNote: row.umkm_note || '', reviewNote: row.review_note || '',
