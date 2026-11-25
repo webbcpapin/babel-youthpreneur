@@ -13,9 +13,10 @@ export async function saveSubmission(action: 'submitWeeklyReport' | 'submitOutpu
   const session = readStoredSession()
   if (!session) throw new Error('Sesi login sudah berakhir. Silakan masuk kembali.')
   const response = await postAction(action, { ...payload, request_id: requestId, session_token: session.token })
-  const row = response.row as SubmissionReceipt | undefined
-  if (!row || typeof row.id !== 'string' || !row.id || row.team_id !== payload.team_id) {
+  const row = response.row as (Partial<SubmissionReceipt> & { teamId?: string }) | undefined
+  const teamId = action === 'submitWeeklyReport' ? (row?.teamId ?? row?.team_id) : row?.team_id
+  if (!row || typeof row.id !== 'string' || !row.id || typeof teamId !== 'string' || teamId !== payload.team_id) {
     throw new Error('Konfirmasi penyimpanan belum lengkap. Isian tetap tersedia; coba kirim lagi dengan data yang sama.')
   }
-  return row
+  return { ...row, id: row.id, team_id: teamId }
 }

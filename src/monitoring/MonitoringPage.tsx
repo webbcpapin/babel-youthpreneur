@@ -9,7 +9,6 @@ import {
   GraduationCap,
   LogOut,
   Medal,
-  QrCode,
   Search,
   Users,
   UploadCloud,
@@ -20,11 +19,13 @@ import { getMonitoringConfig, hasGoogleBackend } from '@/lib/monitoring-config'
 import { getTeamPhoto } from '@/lib/team-photos'
 import { postAction } from '@/services/monitoring-api'
 import { prepareSubmission, saveSubmission, type SubmissionAttempt } from './submission'
-import WeeklyReports2026, { type WeeklyReport } from './WeeklyReports2026'
+import WeeklyReports2026, { stateOf, weeklyCompletion, type WeeklyReport } from './WeeklyReports2026'
+import { WeeklyVisitSchedule, type WeeklyVisit } from './WeeklyVisits2026'
+import { activationDate, finalDeadlineLabel, reportingPeriods, reportIsOpen } from './monitoring-schedule'
 import './MonitoringPage.css'
 
 type Role = 'admin' | 'dosen' | 'mahasiswa' | 'umkm' | 'juri' | 'viewer'
-type View = 'dashboard' | 'learning' | 'attendance' | 'weekly' | 'outputs' | 'challenge' | 'pendamping' | 'approvals' | 'reports'
+type View = 'dashboard' | 'learning' | 'weekly' | 'outputs' | 'challenge' | 'pendamping' | 'approvals' | 'reports'
 type TeamStatus = 'aman' | 'perlu_perhatian' | 'kritis'
 type OutputStatus = 'draft' | 'submitted' | 'revision' | 'approved'
 
@@ -49,12 +50,10 @@ type Team = {
   status: TeamStatus
   reports: number
   outputs: number
-  attendance: number
 }
 
 type LearningModule = { id: string; title: string; date: string; materialName: string; materialUrl: string }
-type AttendanceSession = { id: string; title: string; token: string; startsAt: string; endsAt: string; location: string }
-type AttendanceRecord = { id: string; sessionId: string; teamId: string; name: string; status: string; submittedAt: string; photoUrl: string }
+type TeamActivation = { teamId: string; students: number; umkm: boolean }
 
 type OutputItem = {
   id: string
@@ -88,8 +87,8 @@ type Mentor = {
 type MonitoringData = {
   teams: Team[]
   learningModules: LearningModule[]
-  attendanceSessions: AttendanceSession[]
-  attendanceRecords: AttendanceRecord[]
+  visits: WeeklyVisit[]
+  activations?: TeamActivation[]
   reports: WeeklyReport[]
   outputs: OutputItem[]
   scores: Score[]
@@ -103,12 +102,11 @@ type BackendStatus = {
 }
 
 
-const emptyMonitoringData: MonitoringData = { teams: [], learningModules: [], attendanceSessions: [], attendanceRecords: [], reports: [], outputs: [], scores: [], mentors: [] }
+const emptyMonitoringData: MonitoringData = { teams: [], learningModules: [], visits: [], reports: [], outputs: [], scores: [], mentors: [] }
 
 const navItems: Array<{ key: View; label: string; icon: typeof Gauge }> = [
   { key: 'dashboard', label: 'Dashboard', icon: Gauge },
   { key: 'learning', label: 'Course', icon: BookOpen },
-  { key: 'attendance', label: 'Presensi', icon: QrCode },
   { key: 'weekly', label: 'Laporan', icon: ClipboardCheck },
   { key: 'outputs', label: 'Output', icon: UploadCloud },
   { key: 'challenge', label: 'Challenge', icon: Medal },
@@ -153,8 +151,8 @@ async function fetchGoogleData(): Promise<MonitoringData> {
   return {
     teams,
     learningModules: (payload.learningModules as LearningModule[] | undefined) ?? [],
-    attendanceSessions: (payload.attendanceSessions as AttendanceSession[] | undefined) ?? [],
-    attendanceRecords: (payload.attendanceRecords as AttendanceRecord[] | undefined) ?? [],
+    visits: (payload.visits as WeeklyVisit[] | undefined) ?? [],
+    activations: payload.activations as TeamActivation[] | undefined,
     reports: ((payload.reports as WeeklyReport[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
     outputs: ((payload.outputs as OutputItem[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
     scores: ((payload.scores as Score[] | undefined) ?? []).filter((row) => teamIds.has(row.teamId)),
@@ -175,7 +173,7 @@ function toMonitoringRole(role: string): Role {
 
 function MonitoringPage() {
   const { profile: authProfile, logout } = useAuth()
-  const [view, setView] = useState<View>(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').has('attendance') ? 'attendance' : 'dashboard')
+  const [view, setView] = useState<View>('dashboard')
   const [query, setQuery] = useState('')
   const [data, setData] = useState<MonitoringData>(emptyMonitoringData)
   const [loadAttempt, setLoadAttempt] = useState(0)
@@ -284,10 +282,13 @@ function MonitoringPage() {
           {backendStatus.mode === 'google' && data.teams.length === 0 && <div className="backend-notice local"><strong>Roster 2026 belum dimuat</strong><span>Admin perlu menjalankan setup2026Roster dari editor Apps Script dan menetapkan tim pada akun peserta. Data 2025 tidak ditampilkan di dashboard ini.</span></div>}
           {backendStatus.mode === 'error' && <button className="monitoring-button" onClick={() => { setBackendStatus((current) => ({ ...current, mode: 'loading', message: 'Memuat ulang data monitoring...' })); setLoadAttempt((value) => value + 1) }}>Coba muat ulang data</button>}
 
-          {view === 'dashboard' && <Dashboard profile={profile} teams={scopedTeams} reports={data.reports} outputs={data.outputs} />}
+          {view === 'dashboard' && <Dashboard profile={profile} teams={scopedTeams} reports={data.reports} outputs={data.outputs} visits={data.visits} activations={data.activations} />}
           {view === 'learning' && <LearningCenter profile={profile} modules={data.learningModules} setData={setData} />}
-          {view === 'attendance' && <AttendanceCenter profile={profile} teams={scopedTeams} sessions={data.attendanceSessions} records={data.attendanceRecords} setData={setData} />}
-          {view === 'weekly' && <WeeklyReports2026 profile={profile} teams={scopedTeams} reports={data.reports} onReport={(report) => {
+          {view === 'weekly' && <WeeklyReports2026 profile={profile} teams={scopedTeams} reports={data.reports} visits={data.visits} onVisit={(visit) => {
+            setData((current) => ({
+              ...current, visits: [...current.visits.filter((item) => item.teamId !== visit.teamId || item.week !== visit.week), visit],
+            }))
+          }} onReport={(report) => {
             setData((current) => ({ ...current, reports: [report, ...current.reports.filter((item) => item.id !== report.id)] }))
             if (report.week === 3) void fetchGoogleData().then(setData).catch(() => {})
           }} />}
@@ -318,17 +319,14 @@ function getActionItems(visibleTeams: Team[], activeReports: WeeklyReport[], act
     const outputs = activeOutputs.filter((output) => output.teamId === team.id)
     const actions: Array<{ type: string; team: string; detail: string; tone: string }> = []
 
-    if (reports.length === 0 || team.reports < 2) {
+    if (reportingPeriods.some(({ week }) => reportIsOpen(week) && ['missing', 'draft', 'revision'].includes(stateOf(reports.find((report) => report.week === week))))) {
       actions.push({ type: 'Laporan', team: team.name, detail: 'Laporan mingguan belum lengkap atau perlu dikejar.', tone: 'pending' })
     }
-    if (outputs.length === 0 || outputs.some((output) => output.linkStatus === 'kosong')) {
+    if (reportIsOpen(3) && (outputs.length === 0 || outputs.some((output) => output.linkStatus === 'kosong'))) {
       actions.push({ type: 'Output', team: team.name, detail: 'Ada output yang belum memiliki link atau belum dikirim.', tone: 'revision' })
     }
     if (outputs.some((output) => ['perlu dicek', 'restricted', 'perlu revisi'].includes(output.linkStatus))) {
       actions.push({ type: 'Link', team: team.name, detail: 'Ada link output yang perlu dicek panitia sebelum final.', tone: 'submitted' })
-    }
-    if (team.attendance < 75) {
-      actions.push({ type: 'Presensi', team: team.name, detail: `Presensi tim baru ${team.attendance}%.`, tone: 'revision' })
     }
     if (team.status === 'kritis') {
       actions.push({ type: 'Kritis', team: team.name, detail: 'Perlu eskalasi ke dosen pendamping dan panitia.', tone: 'kritis' })
@@ -338,12 +336,18 @@ function getActionItems(visibleTeams: Team[], activeReports: WeeklyReport[], act
   })
 }
 
-function Dashboard({ profile, teams: visibleTeams, reports: activeReports, outputs: activeOutputs }: { profile: Profile; teams: Team[]; reports: WeeklyReport[]; outputs: OutputItem[] }) {
-  const totalReports = activeReports.filter((report) => visibleTeams.some((team) => team.id === report.teamId)).length
-  const totalOutputs = activeOutputs.filter((output) => visibleTeams.some((team) => team.id === output.teamId)).length
+function Dashboard({ profile, teams: visibleTeams, reports: activeReports, outputs: activeOutputs, visits, activations }: {
+  profile: Profile; teams: Team[]; reports: WeeklyReport[]; outputs: OutputItem[]; visits: WeeklyVisit[]; activations?: TeamActivation[]
+}) {
+  const teamIds = new Set(visibleTeams.map((team) => team.id))
+  const reports = activeReports.filter((report) => teamIds.has(report.teamId))
+  const finalReports = reports.filter((report) => report.week === 3)
+  const completedWorks = finalReports.filter(({ finalOutputs }) => finalOutputs?.marketing && finalOutputs.catalog && finalOutputs.business).length
+  const confirmedUmkm = finalReports.filter((report) => report.umkmApproved || (stateOf(report) === 'verified' && report.umkmApprovalUrl)).length
+  const accountStatus = activations?.filter((activation) => teamIds.has(activation.teamId))
   const totalStudents = visibleTeams.reduce((sum, team) => sum + team.members.length, 0)
-  const averageProgress = Math.round(visibleTeams.reduce((sum, team) => sum + team.progress, 0) / Math.max(1, visibleTeams.length))
-  const criticalCount = visibleTeams.filter((team) => team.status === 'kritis').length
+  const averageProgress = Math.round(visibleTeams.reduce((sum, team) => sum + reportingPeriods.reduce((total, { week }) =>
+    total + weeklyCompletion(reports.find((item) => item.teamId === team.id && item.week === week), week), 0), 0) / Math.max(1, visibleTeams.length * reportingPeriods.length))
   const actions = getActionItems(visibleTeams, activeReports, activeOutputs)
 
   return (
@@ -352,7 +356,7 @@ function Dashboard({ profile, teams: visibleTeams, reports: activeReports, outpu
         <div>
           <p className="eyebrow">Command Center</p>
           <h2>Babel Youthpreneur 2026</h2>
-          <p>Ringkasan cepat untuk melihat pembelajaran, presensi, laporan, output, dan tim yang membutuhkan pendampingan tambahan.</p>
+          <p>Aktivasi akun pada {activationDate}. Batas akhir challenge {finalDeadlineLabel}.</p>
           <span className="role-pill status-pill submitted">Role aktif: {profile.title}</span>
         </div>
         <div className="progress-ring">
@@ -362,11 +366,20 @@ function Dashboard({ profile, teams: visibleTeams, reports: activeReports, outpu
 
       <section className="metric-grid">
         <Metric label="Total Tim" value={visibleTeams.length} hint="Sesuai hak akses role" />
-        <Metric label="Mahasiswa" value={totalStudents} hint="Data peserta batch 2026" />
-        <Metric label="Laporan Masuk" value={totalReports} hint="Laporan mingguan" />
-        <Metric label="Output Terkirim" value={totalOutputs} hint="Draft sampai approved" />
-        <Metric label="Tim Kritis" value={criticalCount} hint="Perlu intervensi" />
+        {accountStatus && <>
+          <Metric label="Akun Mahasiswa Aktif" value={accountStatus.reduce((sum, item) => sum + item.students, 0)} hint={`${totalStudents} mahasiswa di roster`} />
+          <Metric label="UMKM dengan Akun Aktif" value={accountStatus.filter((item) => item.umkm).length} hint={`${visibleTeams.length} tim dampingan`} />
+        </>}
+        {reportingPeriods.map(({ week, dates }) => (
+          <Metric key={week} label={`Laporan Minggu ${week}`} value={`${reports.filter((item) => item.week === week && ['submitted', 'revision', 'verified'].includes(stateOf(item))).length}/${visibleTeams.length}`} hint={dates} />
+        ))}
+        <Metric label="Progres Checklist" value={`${averageProgress}%`} hint="Rata-rata progres tiga minggu" />
+        <Metric label="Tiga Karya Lengkap" value={completedWorks} hint="Tim dengan tiga tautan karya" />
+        <Metric label="Konfirmasi UMKM" value={confirmedUmkm} hint="Tim dengan persetujuan atau bukti terverifikasi" />
+        {profile.role === 'admin' && <Metric label="Tim Perlu Perhatian" value={new Set(actions.map((action) => action.team)).size} hint="Laporan dan keluaran yang perlu ditindaklanjuti" />}
       </section>
+
+      {['admin', 'dosen', 'mahasiswa', 'umkm'].includes(profile.role) && <WeeklyVisitSchedule teams={visibleTeams} visits={visits} />}
 
       {profile.role === 'admin' && (
         <section className="panel">
@@ -444,71 +457,6 @@ function ModuleCard({ module, index, canEdit, setData }: { module: LearningModul
     {canEdit && <div className="module-editor"><label>URL Google Drive materi<input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://drive.google.com/..." /></label><button className="monitoring-button" onClick={() => { void save() }} disabled={busy}>{busy ? 'Menyimpan...' : 'Simpan Tautan'}</button></div>}
     {message && <p className="form-message" role="status">{message}</p>}
   </article>
-}
-
-function currentPosition(): Promise<GeolocationPosition> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { reject(new Error('GPS tidak tersedia di perangkat ini.')); return }
-    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 })
-  })
-}
-
-async function jpegFromFile(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file)
-  const canvas = document.createElement('canvas')
-  const scale = Math.min(1, 640 / Math.max(bitmap.width, bitmap.height))
-  canvas.width = Math.round(bitmap.width * scale)
-  canvas.height = Math.round(bitmap.height * scale)
-  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
-  return canvas.toDataURL('image/jpeg', 0.7)
-}
-
-function AttendanceCenter({ profile, teams, sessions, records, setData }: { profile: Profile; teams: Team[]; sessions: AttendanceSession[]; records: AttendanceRecord[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
-  const [title, setTitle] = useState('Pelatihan Babel Youthpreneur 2026')
-  const [duration, setDuration] = useState(120)
-  const [token, setToken] = useState(() => new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('attendance') ?? '')
-  const [photo, setPhoto] = useState('')
-  const [message, setMessage] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function createSession() {
-    const sessionToken = readStoredSession()?.token
-    if (!sessionToken || busy) return
-    setBusy(true); setMessage('Memeriksa lokasi panitia...')
-    try {
-      const position = await currentPosition()
-      const result = await postAction('createAttendanceSession', { session_token: sessionToken, title: title.trim(), duration_minutes: duration, latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy_meters: position.coords.accuracy })
-      const session = result.session as AttendanceSession
-      setData((current) => ({ ...current, attendanceSessions: [session, ...current.attendanceSessions] }))
-      setMessage('Sesi dibuat. Bagikan tautan presensi kepada peserta di lokasi.')
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Sesi gagal dibuat.') }
-    finally { setBusy(false) }
-  }
-
-  async function submit() {
-    const sessionToken = readStoredSession()?.token
-    if (!sessionToken || busy || !photo || !token.trim()) return
-    setBusy(true); setMessage('Memeriksa GPS dan mengirim selfie...')
-    try {
-      const position = await currentPosition()
-      const result = await postAction('submitAttendance', { session_token: sessionToken, token: token.trim(), latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy_meters: position.coords.accuracy, photo_base64: photo })
-      const row = result.row as AttendanceRecord
-      setData((current) => ({ ...current, attendanceRecords: [row, ...current.attendanceRecords] }))
-      setPhoto('')
-      setMessage('Presensi berhasil dicatat.')
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Presensi belum berhasil.') }
-    finally { setBusy(false) }
-  }
-
-  const visibleRecords = records.filter((row) => teams.some((team) => team.id === row.teamId))
-  return <div className="content-grid">
-    <section className="hero-strip"><div><p className="eyebrow">Presensi Kegiatan</p><h2>Selfie dan Lokasi</h2><p>Identitas diambil dari akun Google yang telah disetujui. GPS presisi dan foto selfie diperlukan saat mengirim presensi.</p></div><QrCode size={96} color="#0f766e" /></section>
-    {profile.role === 'admin' && <section className="panel"><div className="panel-title"><h3>Buat Sesi Presensi</h3></div><div className="attendance-form"><label>Nama kegiatan<input value={title} onChange={(event) => setTitle(event.target.value)} /></label><label>Durasi (menit)<input type="number" min={15} max={480} value={duration} onChange={(event) => setDuration(Number(event.target.value))} /></label><button className="monitoring-button primary" disabled={busy || !title.trim()} onClick={() => { void createSession() }}>Buat Sesi di Lokasi Ini</button></div><p className="muted">Lokasi perangkat panitia menjadi titik presensi. Radius 250 m, akurasi GPS maksimum 100 m.</p>{sessions.map((session) => <article className="attendance-card" key={session.id}><strong>{session.title}</strong><p>Berakhir {new Date(session.endsAt).toLocaleString('id-ID')}</p><p className="attendance-code">{session.token}</p><button className="monitoring-button" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/monitoring?attendance=${encodeURIComponent(session.token)}`) }}>Salin Tautan Presensi</button></article>)}</section>}
-    {profile.role === 'mahasiswa' && <section className="panel"><div className="panel-title"><h3>Isi Presensi</h3></div><div className="attendance-form"><label>Kode sesi<input value={token} onChange={(event) => setToken(event.target.value)} placeholder="Kode dari panitia" /></label><label>Foto selfie<input type="file" accept="image/*" capture="user" onChange={(event) => { const file = event.target.files?.[0]; if (file) void jpegFromFile(file).then(setPhoto).catch(() => setMessage('Foto tidak dapat diproses. Coba JPEG lain.')) }} /></label>{photo && <img className="attendance-preview" src={photo} alt="Pratinjau selfie" />}<button className="monitoring-button primary" disabled={busy || !token.trim() || !photo} onClick={() => { void submit() }}>Kirim Presensi</button></div></section>}
-    {message && <p className="form-message" role="status">{message}</p>}
-    <section className="panel"><div className="panel-title"><h3>Riwayat Presensi</h3>{profile.role === 'admin' && <button className="monitoring-button" onClick={() => downloadCsv('presensi-2026.csv', visibleRecords.map((row) => ({ nama: row.name, tim: teams.find((team) => team.id === row.teamId)?.name ?? '', sesi: row.sessionId, waktu: row.submittedAt, status: row.status, foto: row.photoUrl })))}><Download size={16} /> CSV</button>}</div><div className="report-list">{visibleRecords.length === 0 && <div className="empty-state">Belum ada presensi tercatat.</div>}{visibleRecords.map((row) => <article className="attendance-card" key={row.id}><strong>{row.name}</strong><p>{teams.find((team) => team.id === row.teamId)?.name ?? ''} · {new Date(row.submittedAt).toLocaleString('id-ID')}</p><span className="status-pill approved">{row.status}</span></article>)}</div></section>
-  </div>
 }
 
 function OutputTracker({ profile, teams: visibleTeams, outputs: activeOutputs, setData }: { profile: Profile; teams: Team[]; outputs: OutputItem[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
@@ -735,7 +683,7 @@ function ApprovalRow({ item, campuses, teams, umkms, onApprove }: { item: Approv
     finally { setBusy(false) }
   }
 
-  return <article className="attendance-card approval-row">
+  return <article className="approval-row">
     <div><strong>{item.name}</strong><p>{item.email}</p><p className="muted">Daftar sebagai {item.requestedRole} · {item.institution || 'Instansi belum diisi'}</p>{item.whatsapp && <p className="muted">WhatsApp: {item.whatsapp}</p>}{item.note && <p className="muted">Catatan: {item.note}</p>}{item.requestedAssignmentId && <p className="muted">Pilihan pendaftar: {assignmentName(item.requestedAssignmentId)}</p>}{item.suggestedAssignmentId && <p className="muted">Cocok roster: {assignmentName(item.suggestedAssignmentId)}</p>}</div>
     {supported ? <div className="approval-controls">
       <label>Role<select value={role} onChange={(event) => { setRole(event.target.value); setAssignmentId('') }} disabled={busy}>
@@ -804,7 +752,6 @@ function ReportCenter({ profile, teams: visibleTeams }: { profile: Profile; team
     status: team.status,
     laporan: team.reports,
     output: team.outputs,
-    presensi: team.attendance,
   }))
 
   return (
@@ -825,7 +772,7 @@ function ReportCenter({ profile, teams: visibleTeams }: { profile: Profile; team
           <span className="muted">Status job</span>
         </div>
         <div className="job-list">
-          {['Excel Monitoring', 'PDF Executive Summary', 'Attendance Audit', 'Weekly Report Recap', 'Output Recap', 'Challenge Score Recap'].map((job, index) => (
+          {['Excel Monitoring', 'PDF Executive Summary', 'Weekly Report Recap', 'Output Recap', 'Challenge Score Recap'].map((job, index) => (
             <article className="job-row" key={job}>
               <div>
                 <strong>{job}</strong>
@@ -898,7 +845,6 @@ function pageTitle(view: View) {
   const titles: Record<View, string> = {
     dashboard: 'Visual Monitoring',
     learning: 'Course Pelatihan',
-    attendance: 'Attendance Center',
     weekly: 'Laporan Mingguan',
     outputs: 'Output UMKM',
     challenge: 'Challenge Scoring',

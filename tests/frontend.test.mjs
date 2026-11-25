@@ -56,7 +56,7 @@ test('unchanged retry keeps request id while edited content gets a new id', () =
 
 test('submission returns confirmed server id and sends session plus request id', async () => {
   let captured
-  const api = submissions(async (action, payload) => { captured = { action, payload }; return { ok: true, row: { id: 'server-id', team_id: 't1' } } })
+  const api = submissions(async (action, payload) => { captured = { action, payload }; return { ok: true, row: { id: 'server-id', teamId: 't1' } } })
   assert.equal((await api.saveSubmission('submitWeeklyReport', { team_id: 't1' }, 'request-id')).id, 'server-id')
   assert.equal(captured.payload.session_token, 'session-token')
   assert.equal(captured.payload.request_id, 'request-id')
