@@ -1,0 +1,229 @@
+.ai-toolkit {
+  min-width: 0;
+  padding: 4px 0 10px;
+}
+
+.ai-toolkit-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ai-toolkit-header > svg {
+  flex: none;
+  margin-top: 3px;
+  color: #0f766e;
+}
+
+.ai-toolkit-header h2 {
+  margin: 0;
+  font-size: 1.42rem;
+}
+
+.ai-toolkit-header p:last-child {
+  margin: 6px 0 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.ai-toolkit-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #eef2f6;
+}
+
+.ai-toolkit-controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #334155;
+  font-size: .85rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.ai-toolkit-controls button:hover {
+  background: #f8fafc;
+}
+
+.ai-toolkit-controls button[aria-pressed='true'] {
+  border-color: #99d5ca;
+  background: #fff;
+  color: #115e59;
+}
+
+.ai-toolkit-controls button span {
+  min-width: 1.4rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  font-size: .75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-toolkit-controls button[aria-pressed='true'] span {
+  background: #d1f0e9;
+}
+
+.ai-toolkit-schedule {
+  margin: 12px 0 8px;
+  color: #475569;
+  font-size: .84rem;
+  line-height: 1.5;
+}
+
+.ai-prompt-list {
+  margin: 0;
+  padding: 0;
+  border-block: 1px solid #dce3ee;
+  background: #fff;
+  list-style: none;
+}
+
+.ai-prompt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0 12px;
+  padding: 8px 12px;
+}
+
+.ai-prompt-row + .ai-prompt-row {
+  border-top: 1px solid #dce3ee;
+}
+
+.ai-prompt-summary {
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ai-prompt-number {
+  color: #0f766e;
+  font-size: .85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-prompt-label {
+  display: grid;
+  gap: 3px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ai-prompt-label strong {
+  font-size: .94rem;
+}
+
+.ai-prompt-label span {
+  color: #475569;
+  font-size: .82rem;
+}
+
+.ai-prompt-chevron {
+  color: #475569;
+}
+
+.ai-prompt-summary[aria-expanded='true'] .ai-prompt-chevron {
+  rotate: 180deg;
+}
+
+.ai-toolkit .ai-prompt-copy {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  min-width: 110px;
+  min-height: 44px;
+  padding-inline: 9px;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: .82rem;
+}
+
+.ai-toolkit .ai-prompt-copy.is-copied {
+  border-color: #99d5ca;
+  background: #edf9f6;
+  color: #115e59;
+}
+
+.ai-prompt-content {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.ai-prompt-preview,
+.ai-prompt-manual {
+  margin: 6px 0 4px;
+  padding: 12px;
+  border-left: 2px solid #99d5ca;
+  background: #f5f8fa;
+  color: #1e293b;
+}
+
+.ai-prompt-preview,
+.ai-prompt-manual textarea {
+  font: inherit;
+  font-size: .9rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ai-prompt-manual p {
+  margin: 0 0 8px;
+  font-size: .86rem;
+}
+
+.ai-prompt-manual textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.ai-toolkit button:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+@media (max-width: 540px) {
+  .ai-toolkit-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ai-prompt-row {
+    column-gap: 8px;
+    padding-inline: 8px;
+  }
+
+  .ai-prompt-summary {
+    grid-template-columns: 20px minmax(0, 1fr) 14px;
+    gap: 5px;
+  }
+
+  .ai-toolkit .ai-prompt-copy {
+    min-width: 96px;
+    padding-inline: 7px;
+  }
+}

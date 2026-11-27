@@ -19,6 +19,33 @@ function loadTs(file, globals = {}, imports = {}) {
   return context.exports
 }
 
+test('Course AI toolkit offers 15 distinct copy-ready prompts in four stages', () => {
+  const schedule = loadTs('monitoring/monitoring-schedule.ts')
+  const content = loadTs('monitoring/ai-toolkit-content.ts', {}, { './monitoring-schedule': schedule })
+  const phases = content.aiToolkitPhases
+  assert.deepEqual(Array.from(phases, (phase) => phase.prompts.length), [4, 5, 5, 1])
+  assert.deepEqual(Array.from(phases.slice(0, 3), (phase) => phase.dates), Array.from(schedule.reportingPeriods, (period) => period.dates))
+  const prompts = phases.flatMap((phase) => phase.prompts)
+  assert.equal(new Set(prompts.map((prompt) => prompt.title)).size, 15)
+  assert.ok(prompts.every((prompt) => prompt.outcome && prompt.body.length > 150))
+  assert.match(prompts[0].body, /Nama tim: \[isi\]/)
+  assert.match(prompts[13].body, /9 Desember 2026 pukul 23\.59 WIB/)
+
+  const Icon = () => null
+  const toolkit = loadTs('monitoring/AiToolkit.tsx', {}, {
+    react: React,
+    'react/jsx-runtime': jsxRuntime,
+    'lucide-react': { Check: Icon, ChevronDown: Icon, Clipboard: Icon, Sparkles: Icon },
+    './ai-toolkit-content': content,
+    './AiToolkit.css': {},
+  })
+  const markup = renderToStaticMarkup(React.createElement(toolkit.default))
+  assert.match(markup, /AI Business Mentoring Toolkit/)
+  assert.match(markup, /Panduan opsional/)
+  assert.equal((markup.match(/aria-label="Salin prompt /g) ?? []).length, 4)
+  assert.match(markup, /Salin prompt 04: Action Plan/)
+})
+
 function storedSession(value) {
   const values = new Map(value ? [['byp.session.v1', JSON.stringify(value)]] : [])
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, entry) => values.set(key, entry), removeItem: (key) => values.delete(key) }

@@ -19,6 +19,7 @@ import { getMonitoringConfig, hasGoogleBackend } from '@/lib/monitoring-config'
 import { getTeamPhoto } from '@/lib/team-photos'
 import { postAction } from '@/services/monitoring-api'
 import { prepareSubmission, saveSubmission, type SubmissionAttempt } from './submission'
+import AiToolkit from './AiToolkit'
 import WeeklyReports2026, { stateOf, weeklyCompletion, type WeeklyReport } from './WeeklyReports2026'
 import { WeeklyVisitSchedule, type WeeklyVisit } from './WeeklyVisits2026'
 import { activationDate, finalDeadlineLabel, reportingPeriods, reportIsOpen } from './monitoring-schedule'
@@ -414,6 +415,7 @@ function Dashboard({ profile, teams: visibleTeams, reports: activeReports, outpu
 function LearningCenter({ profile, modules, setData }: { profile: Profile; modules: LearningModule[]; setData: Dispatch<SetStateAction<MonitoringData>> }) {
   return (
     <div className="content-grid">
+      <AiToolkit />
       <section className="hero-strip">
         <div>
           <p className="eyebrow">Learning Center</p>
