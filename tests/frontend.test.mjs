@@ -42,6 +42,7 @@ test('Course AI toolkit offers 15 distinct copy-ready prompts in four stages', (
   const markup = renderToStaticMarkup(React.createElement(toolkit.default))
   assert.match(markup, /AI Business Mentoring Toolkit/)
   assert.match(markup, /Panduan opsional/)
+  assert.match(markup, /<footer class="ai-toolkit-credit">\u00a9 2026 @agung3956<\/footer>/)
   assert.equal((markup.match(/aria-label="Salin prompt /g) ?? []).length, 4)
   assert.match(markup, /Salin prompt 04: Action Plan/)
 })

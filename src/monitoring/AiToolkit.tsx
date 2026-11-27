@@ -97,6 +97,7 @@ export default function AiToolkit() {
       <ol className="ai-prompt-list" start={offset + 1} aria-label={`Prompt ${phase.title}`}>
         {phase.prompts.map((prompt, index) => <PromptRow key={prompt.title} prompt={prompt} number={offset + index + 1} />)}
       </ol>
+      <footer className="ai-toolkit-credit">&copy; 2026 @agung3956</footer>
     </section>
   )
 }
